@@ -57,6 +57,8 @@ public class ServicesHandlerCAS extends ServicesHandler {
         }
     }
 
+    protected static Exception fail = new Exception("Username or password does not exist");
+
 
     public ServicesHandlerCAS(ServicesMessage servicesMsg) throws I2B2Exception{
 	super(servicesMsg);
@@ -85,42 +87,32 @@ public class ServicesHandlerCAS extends ServicesHandler {
 		builder.append(line);
 	    }
 	    String response = builder.toString();
-	    int start = response.indexOf("<cas:authenticationSuccess");
+	    int start = response.indexOf("<cas:authenticationSuccess>");
 	    String username;
 	    if (start > -1) {
-	    	start = response.indexOf(">", start);
-	    	if (start < 0) {
-	    	    log.error("Unexpected response from CAS: " + response);
-	    	    throw new Exception("EINTERNAL");
-	    	}
-		start += 1;
-		start = response.indexOf("<cas:user", start);
+		start += "<cas:authenticationSuccess>".length();
+		start = response.indexOf("<cas:user>", start);
 		if (start < 0) {
 		    log.error("Unexpected response from CAS: " + response);
-		    throw new Exception("EINTERNAL");
+		    throw fail;
 		} else {
-		    start = response.indexOf(">", start);
-		    if (start < 0) {
-	    	        log.error("Unexpected response from CAS: " + response);
-	    	        throw new Exception("EINTERNAL");
-	    	    }
-		    start += 1;
-		    int finish = response.indexOf("</cas:user", start);
+		    start += "<cas:user>".length();
+		    int finish = response.indexOf("</cas:user>", start);
 		    if (finish < 0) {
 			log.error("Unexpected response from CAS: " + response);
-			throw new Exception("EINTERNAL");
+			throw fail;
 		    } else {
 			username = response.substring(start, finish).trim();
 		    }
 		}
 	    } else {
-		if (response.contains("<cas:authenticationFailure")) {
+		if (response.contains("<cas:authenticationFailure>")) {
 		    log.debug("CAS authentication result negative");
-		    throw new Exception("EAUTHENTICATION");
 		} else {
 		    log.error("Unexpected response from CAS: " + response);
-		    throw new Exception("EINTERNAL");
 		}
+		
+                throw fail;
 	    }
 
             log.debug("CAS authenticated user:" + username);
@@ -131,13 +123,13 @@ public class ServicesHandlerCAS extends ServicesHandler {
                 answers = pmDb.getUser(username, null);
             } catch (I2B2DAOException dberr) {
                 log.debug(dberr.toString());
-                throw new Exception("EINTERNAL");
+                throw fail;
             }
 
             Iterator users = answers.iterator();
             if (!users.hasNext()) {
                 log.debug("No such user record: " + username);
-                throw new Exception("EAUTHORIZATION");
+                throw fail;
             }
             body.close();
             body = null;

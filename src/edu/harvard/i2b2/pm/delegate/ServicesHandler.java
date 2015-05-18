@@ -119,9 +119,7 @@ public class ServicesHandler extends RequestHandler {
 	}
 
 
-
 	protected UserType validateSuppliedPassword (String username, String password, Hashtable param, boolean skipValidation) throws Exception
-
 	{
 		PMDbDao pmDb = new PMDbDao();
 
