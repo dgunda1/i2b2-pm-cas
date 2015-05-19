@@ -434,6 +434,7 @@ public class ServicesHandler extends RequestHandler {
 					if (!rmt.getUsername().equals("AGG_SERVICE_ACCOUNT"))
 						saveLoginAttempt(pmDb, user.getUserName(), "SUCCESS");
 
+
 				} catch (Exception e)
 				{
 					throw new Exception (e.getMessage());
