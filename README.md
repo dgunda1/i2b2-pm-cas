@@ -28,6 +28,9 @@ If you are installing i2b2 on a separate machine from Eureka!, create a file, `/
 `cas.url=URL to your cas server`. This file already exists if you have already installed Eureka on the same machine.
 
 
+Finally, you may need to install the SSL certificate served by CAS server into the cacerts file of the Java installation that i2b2 is using. This is especially true if the CAS server's certificate is self-signed.
+
+
 Create a Java properties file, `/etc/eureka/application.properties` with one line: 
 ```
 cas.url = the URL of your cas server
