@@ -111,8 +111,6 @@ public class ServicesHandlerCAS extends ServicesHandler {
 		    log.error("Unexpected response from CAS: " + response);
 		    throw new Exception("EINTERNAL");
 		}
-		
-                throw fail;
 	    }
 
             log.debug("CAS authenticated user:" + username);
