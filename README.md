@@ -20,6 +20,7 @@ We expect any full implementation of version 2 of the CAS protocol to work. In p
 ## Requirements
 See the [i2b2 installation guide](https://www.i2b2.org/software/files/PDF/current/FR_Installation_Guide.pdf) for requirements. Our patches do not change them.
 
+
 ## Versions of CAS Supported
 Eureka! currently uses a patched copy of CAS version 3.5.2. While these i2b2 patches have only been tested with Eureka!'s patched CAS, they likely also will work with stock CAS 3.5.2.
 
