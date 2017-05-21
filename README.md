@@ -25,6 +25,7 @@ See the [i2b2 installation guide](https://www.i2b2.org/software/files/PDF/curren
 Eureka! currently uses a patched copy of CAS version 3.5.2. While these i2b2 patches have only been tested with Eureka!'s patched CAS, they likely also will work with stock CAS 3.5.2.
 
 
+
 ## Installation
 If you are installing i2b2 on a separate machine from Eureka!, create a file, `/etc/eureka/application.properties` with one line: 
 `cas.url=URL to your cas server`. This file already exists if you have already installed Eureka on the same machine.
