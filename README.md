@@ -8,11 +8,9 @@ This is a stock i2b2 1.7.05 project management module patched with support for d
 
 The code is adapted from similar code for an older version of i2b2 by Dan Connolly found at https://bitbucket.org/DanC/i2b2-pm-cas.
 
-
 ## Version history
 ### Version 1.0
 Initial release.
-
 
 ## CAS implementations supported
 We expect any full implementation of version 2 of the CAS protocol to work. In particular, the implementation must support proxying. The following implementations of CAS are known to work:
