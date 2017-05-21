@@ -10,7 +10,6 @@ This is a stock i2b2 1.7.05 project management module patched with support for d
 
 The code is adapted from similar code for an older version of i2b2 by Dan Connolly found at https://bitbucket.org/DanC/i2b2-pm-cas.
 
-<<<<<<< HEAD
 
 ## Version history
 ### Version 1.0
@@ -25,17 +24,9 @@ We expect any full implementation of version 2 of the CAS protocol to work. In p
 ## Requirements
 See the [i2b2 installation guide](https://www.i2b2.org/software/files/PDF/current/FR_Installation_Guide.pdf) for requirements. Our patches do not change them.
 
-
 ## Versions of CAS Supported
 Eureka! currently uses a patched copy of CAS version 3.5.2. While these i2b2 patches have only been tested with Eureka!'s patched CAS, they likely also will work with stock CAS 3.5.2.
 
-=======
-## Versions of CAS Supported
-Eureka! currently uses a patched copy of CAS version 3.5.2. While these i2b2 patches have only been tested with Eureka!'s patched CAS, they likely also will work with stock CAS 3.5.2.
-
-## Installation
-Replace the stock project management module with this one before compiling i2b2, and it will be built and install as usual.
->>>>>>> Update README.md
 
 ## Installation
 If you are installing i2b2 on a separate machine from Eureka!, create a file, `/etc/eureka/application.properties` with one line: 
