@@ -13,6 +13,7 @@ The code is adapted from similar code for an older version of i2b2 by Dan Connol
 ### Version 1.0
 Initial release.
 
+
 ## CAS implementations supported
 We expect any full implementation of version 2 of the CAS protocol to work. In particular, the implementation must support proxying. The following implementations of CAS are known to work:
 * [Eureka! Clinical CAS](https://github.com/eurekaclinical/cas), which is a patched version of [JASIG CAS version 3.5.2](https://wiki.jasig.org/display/CASUM/Home)
@@ -24,6 +25,7 @@ See the [i2b2 installation guide](https://www.i2b2.org/software/files/PDF/curren
 
 ## Versions of CAS Supported
 Eureka! currently uses a patched copy of CAS version 3.5.2. While these i2b2 patches have only been tested with Eureka!'s patched CAS, they likely also will work with stock CAS 3.5.2.
+
 
 
 
