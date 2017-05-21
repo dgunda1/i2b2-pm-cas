@@ -29,13 +29,9 @@ Eureka! currently uses a patched copy of CAS version 3.5.2. While these i2b2 pat
 If you are installing i2b2 on a separate machine from Eureka!, create a file, `/etc/eureka/application.properties` with one line: 
 `cas.url=URL to your cas server`. This file already exists if you have already installed Eureka on the same machine.
 
-
-
 Finally, you may need to install the SSL certificate served by CAS server into the certificate store of the Java installation that i2b2 is using. This is especially true if the CAS server's certificate is self-signed. See https://www.sslshopper.com/article-most-common-java-keytool-keystore-commands.html for instructions on how to work with the Java certificate store.
 
-
 In order to login to i2b2 using CAS, you also need to install our patched i2b2 webclient, found at https://github.com/eurekaclinical/i2b2-webclient-cas.
-
 
 ## Configuration
 When using these patches, the i2b2 project management module's user data table becomes an authorization table. The code authenticates the user with Eureka! CAS, and then it checks the user data table for the existence of the user's account before authorizing the user. Any passwords in the user data table are ignored.
