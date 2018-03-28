@@ -61,7 +61,6 @@
 		<javac destdir="${classes}" optimize="${javac.opt}" debug="${javac.debug}">
 			<src path="${src}" />
 			<src path="${gensrc}" />
-			<src path="${lib}" />
 			<src path="test" /> 
 			<classpath refid="classpath" />
 		</javac>
