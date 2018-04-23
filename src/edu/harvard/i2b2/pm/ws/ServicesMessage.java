@@ -54,7 +54,7 @@ public class ServicesMessage {
 
             log.debug("Finished unmarshall of XML");
             this.reqMessageType = (RequestMessageType) jaxbElement.getValue();
-            
+
         } catch (JAXBUtilException e) {
             e.printStackTrace();
             log.error(e.getMessage(), e);

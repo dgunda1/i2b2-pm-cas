@@ -225,7 +225,6 @@ public class PMService {
 
 		OMElement returnElement = null;
 
-
 		if (getPMDataElement == null) {
 			log.error("Incoming PM request is null");
 			throw new I2B2Exception("Incoming PM request is null");
@@ -270,9 +269,6 @@ public class PMService {
 		
 		log.debug("end setRequestHandler");
 
-
-
-			log.debug("end setRequestHandler");
 
 
 			Thread t = new Thread(er);
