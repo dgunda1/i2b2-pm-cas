@@ -234,7 +234,6 @@ public class PMService {
 		Pattern p = Pattern.compile("<password>.+</password>");
 		Matcher m = p.matcher(getPMDataElement.toString());
 		String outString = m.replaceAll("<password>*********</password>");
-
 		p = Pattern.compile(">.+</ns9:set_password>");
 		m = p.matcher(outString);
 		outString = m.replaceAll(">*********</ns9:set_password>");
@@ -261,6 +260,7 @@ public class PMService {
 			ExecutorRunnable er = new ExecutorRunnable();
 			//er.setInputString(requestElementString);
 			log.debug("begin setRequestHandler, my servicesMsg: " + servicesMsg);
+
 
 
 		//er.setRequestHandler(new ServicesHandler(servicesMsg));

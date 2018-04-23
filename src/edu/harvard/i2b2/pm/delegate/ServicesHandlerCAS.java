@@ -29,6 +29,7 @@ import org.apache.axis2.context.MessageContext;
 
 import com.ibm.wsdl.extensions.http.HTTPConstants;
 
+
 /**
  * ServicesHandlerCAS validates users using
  * JA-SIG Central Authentication Service (CAS).
@@ -88,11 +89,7 @@ public class ServicesHandlerCAS extends ServicesHandler {
 		    return super.validateSuppliedPassword(service, ticket, param);
 		}
     }
-	MessageContext context = MessageContext.getCurrentMessageContext();
-	HttpServletRequest  request = (HttpServletRequest) context.getProperty("transport.http.servletRequest");
-	System.out.println("+++request+++"+request);
-	log.debug("+++request+++"+request);
-	log.info("+++request+++"+request);
+
 	String addr = appProperties.getProperty(CAS_URL_PROPERTY_NAME) + "proxyValidate?"
 	    + "service=" + URLEncoder.encode("http://localhost:9090"+request.getRequestURI().toString(), "UTF-8")
 	    + "&ticket=" + URLEncoder.encode(ticket, "UTF-8");
@@ -281,3 +278,4 @@ class URLOpener {
 							"utf-8"));
     }
 }
+
