@@ -45,11 +45,13 @@ public class ServicesHandlerCAS extends ServicesHandler {
     private static final String CONFIG_PATHNAME="/etc/eureka/application.properties";
     private static final String CAS_URL_PROPERTY_NAME = "cas.url";
     private static final String CAS_DEFAULT_URL = "https://localhost:8443/cas-server/";
+    private static final String I2B2_SERVICES_URL = "i2b2.services.url";
+    private static final String I2B2_SERVICES_DEFAULT_URL = "http://localhost:9090/i2b2/services/PMService/";
+    
     private static final Properties appProperties = new Properties();
     
     static {
-        try {
-            FileReader fr = new FileReader(CONFIG_PATHNAME);
+        try (FileReader fr = new FileReader(CONFIG_PATHNAME)) {
             appProperties.load(fr);
             String readCasUrl = appProperties.getProperty(CAS_URL_PROPERTY_NAME);
             if (readCasUrl == null) {
@@ -57,10 +59,13 @@ public class ServicesHandlerCAS extends ServicesHandler {
             } else if (!readCasUrl.endsWith("/")) {
                 appProperties.setProperty(CAS_URL_PROPERTY_NAME, readCasUrl + "/");
             }
-            fr.close();
-            fr = null;
+	    String readI2b2ServicesUrl = appProperties.getProperty(I2B2_SERVICES_URL);
+	    if (readI2b2ServicesUrl == null) {
+		appProperties.setProperty(I2B2_SERVICES_URL, I2B2_SERVICES_DEFAULT_URL);
+	    }
         } catch (FileNotFoundException ex) {
             appProperties.setProperty(CAS_URL_PROPERTY_NAME, CAS_DEFAULT_URL);
+	    appProperties.setProperty(I2B2_SERVICES_URL, I2B2_SERVICES_DEFAULT_URL);
         } catch (IOException ex) {
             throw new IllegalStateException("Error reading CAS integration configuration file " + CONFIG_PATHNAME, ex);
         }
@@ -89,7 +94,7 @@ public class ServicesHandlerCAS extends ServicesHandler {
 	
 
 	String addr = appProperties.getProperty(CAS_URL_PROPERTY_NAME) + "proxyValidate?"
-	    + "service=" + URLEncoder.encode("http://localhost:9090"+request.getRequestURI().toString(), "UTF-8")
+	    + "service=" + URLEncoder.encode(appProperties.getProperty(I2B2_SERVICES_URL), "UTF-8")
 	    + "&ticket=" + URLEncoder.encode(ticket, "UTF-8");
 	log.debug("CAS validation address: " + addr);
 	
