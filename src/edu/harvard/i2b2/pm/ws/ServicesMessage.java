@@ -1,8 +1,13 @@
-/*
- * Copyright (c) 2006-2007 Massachusetts General Hospital 
+/*******************************************************************************
+ * Copyright (c) 2006-2018 Massachusetts General Hospital 
  * All rights reserved. This program and the accompanying materials 
- * are made available under the terms of the i2b2 Software License v1.0 
- * which accompanies this distribution. 
+ * are made available under the terms of the Mozilla Public License,
+ * v. 2.0. If a copy of the MPL was not distributed with this file, You can
+ * obtain one at http://mozilla.org/MPL/2.0/. I2b2 is also distributed under
+ * the terms of the Healthcare Disclaimer.
+ ******************************************************************************/
+/*
+
  * 
  * Contributors:
  *     Mike Mendis - initial API and implementation
@@ -10,19 +15,16 @@
 
 package edu.harvard.i2b2.pm.ws;
 
-import edu.harvard.i2b2.common.exception.I2B2Exception;
-import edu.harvard.i2b2.common.util.jaxb.JAXBUnWrapHelper;
-import edu.harvard.i2b2.common.util.jaxb.JAXBUtil;
-import edu.harvard.i2b2.common.util.jaxb.JAXBUtilException;
-import edu.harvard.i2b2.pm.datavo.i2b2message.BodyType;
-import edu.harvard.i2b2.pm.datavo.i2b2message.RequestMessageType;
-import edu.harvard.i2b2.pm.datavo.pm.GetUserConfigurationType;
-import edu.harvard.i2b2.pm.util.JAXBConstant;
+import javax.xml.bind.JAXBElement;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import javax.xml.bind.JAXBElement;
+import edu.harvard.i2b2.common.exception.I2B2Exception;
+import edu.harvard.i2b2.common.util.jaxb.JAXBUtil;
+import edu.harvard.i2b2.common.util.jaxb.JAXBUtilException;
+import edu.harvard.i2b2.pm.datavo.i2b2message.BodyType;
+import edu.harvard.i2b2.pm.datavo.i2b2message.RequestMessageType;
 
 
 /**
