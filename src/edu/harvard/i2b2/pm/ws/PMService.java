@@ -18,6 +18,7 @@ import edu.harvard.i2b2.common.util.jaxb.JAXBUtilException;
 import edu.harvard.i2b2.pm.datavo.i2b2message.ResponseMessageType;
 import edu.harvard.i2b2.pm.delegate.RequestHandler;
 import edu.harvard.i2b2.pm.delegate.ServicesHandler;
+import edu.harvard.i2b2.pm.delegate.ServicesHandlerCAS;
 import edu.harvard.i2b2.pm.ws.ExecutorRunnable;
 import edu.harvard.i2b2.pm.ws.MessageFactory;
 
@@ -145,7 +146,7 @@ public class PMService {
         */
 		
 		OMElement returnElement = null;
-
+		
 
 		if (getPMDataElement == null) {
 			log.error("Incoming PM request is null");
@@ -185,7 +186,8 @@ public class PMService {
 		//er.setInputString(requestElementString);
 		log.debug("begin setRequestHandler, my servicesMsg: " + servicesMsg);
 
-		er.setRequestHandler(new ServicesHandler(servicesMsg));
+		//er.setRequestHandler(new ServicesHandler(servicesMsg));
+                er.setRequestHandler(new ServicesHandlerCAS(servicesMsg));
 		log.debug("middle setRequestHandler");
 		
 		
@@ -205,7 +207,7 @@ public class PMService {
 				//} else {
 				//	t.wait();
 				//}
-				
+
 				 long startTime = System.currentTimeMillis(); 
                  long deltaTime = -1; 
                  while((er.isJobCompleteFlag() == false)&& (deltaTime < waitTime)){ 

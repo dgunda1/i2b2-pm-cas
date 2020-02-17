@@ -9,14 +9,25 @@
  */
 package edu.harvard.i2b2.pm.delegate;
 
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Properties;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.xml.bind.JAXBElement;
+
+import org.apache.axis2.client.Stub;
+import org.apache.axis2.context.MessageContext;
 
 import edu.harvard.i2b2.common.exception.I2B2DAOException;
 import edu.harvard.i2b2.common.exception.I2B2Exception;
@@ -61,11 +72,36 @@ import edu.harvard.i2b2.pm.ejb.DBInfoType;
 public class ServicesHandler extends RequestHandler {
 	private ProjectType projectInfo = null;
 	private ServicesMessage getServicesMsg = null;
+	private MessageContext context = null;
 
+	protected static final String CONFIG_PATHNAME="/etc/eureka/application.properties";
+	protected static final String CAS_URL_PROPERTY_NAME = "cas.url";
+	protected static final String CAS_DEFAULT_URL = "https://localhost:8443/cas-server/";
+	protected static final Properties appProperties = new Properties();
+	   static {
+	        try {
+	            FileReader fr = new FileReader(CONFIG_PATHNAME);
+	            appProperties.load(fr);
+	            String readCasUrl = appProperties.getProperty(CAS_URL_PROPERTY_NAME);
+	            if (readCasUrl == null) {
+	                appProperties.setProperty(CAS_URL_PROPERTY_NAME, CAS_DEFAULT_URL);
+	            } else if (!readCasUrl.endsWith("/")) {
+	                appProperties.setProperty(CAS_URL_PROPERTY_NAME, readCasUrl + "/");
+	            }
+	            fr.close();
+	            fr = null;
+	        } catch (FileNotFoundException ex) {
+	            appProperties.setProperty(CAS_URL_PROPERTY_NAME, CAS_DEFAULT_URL);
+	        } catch (IOException ex) {
+	            throw new IllegalStateException("Error reading CAS integration configuration file " + CONFIG_PATHNAME, ex);
+	        }
+	    }
 	public ServicesHandler(ServicesMessage servicesMsg) throws I2B2Exception{
 		log.debug("Setting the servicesMsg");	
 
 		getServicesMsg = servicesMsg;
+		context = MessageContext.getCurrentMessageContext();
+		System.out.println("+MessageContext+"+context);
 		//setDbInfo(servicesMsg.getRequestMessageType().getMessageHeader());
 	}
 
@@ -77,7 +113,7 @@ public class ServicesHandler extends RequestHandler {
 	}
 
 
-	private UserType validateSuppliedPassword (String username, String password, Hashtable param) throws Exception
+	protected UserType validateSuppliedPassword (String username, String password, Hashtable param) throws Exception
 	{
 		PMDbDao pmDb = new PMDbDao();
 
@@ -344,6 +380,7 @@ public class ServicesHandler extends RequestHandler {
 				uType.setFullName(user.getFullName());
 				uType.setUserName(rmt.getUsername());
 				uType.setDomain(rmt.getDomain());
+				uType.setIsAdmin(user.isIsAdmin());
 				PasswordType passType = new PasswordType();
 				passType.setIsToken(true);
 				passType.setValue(password);
@@ -362,16 +399,14 @@ public class ServicesHandler extends RequestHandler {
 					UserType user = validateSuppliedPassword( rmt.getUsername(), rmt.getPassword().getValue(), params);
 					uType.setFullName(user.getFullName());
 					uType.setIsAdmin(user.isIsAdmin());
-					saveLoginAttempt(pmDb, rmt.getUsername(), "SUCCESS");
+                                        uType.setUserName(user.getUserName());
+					uType.setDomain(rmt.getDomain());
+					saveLoginAttempt(pmDb, user.getUserName(), "SUCCESS");
 
 				} catch (Exception e)
 				{
 					throw new Exception (e.getMessage());
 				}
-
-				//if password was good then set info and generate a new session key
-				uType.setUserName(rmt.getUsername());
-				uType.setDomain(rmt.getDomain());
 
 				//SessionKey newKey;
 
@@ -392,7 +427,7 @@ public class ServicesHandler extends RequestHandler {
 				int timeout = 1800000;
 				if (rmt.getPassword().getTokenMsTimeout() != null)
 					timeout = rmt.getPassword().getTokenMsTimeout();
-				int result = pmDb.setSession(rmt.getUsername(), encryptedKey, timeout);
+				int result = pmDb.setSession(uType.getUserName(), encryptedKey, timeout);
 
 				if (result < 1)
 					throw new Exception("Failed to save session");
@@ -416,7 +451,7 @@ public class ServicesHandler extends RequestHandler {
 			{
 				PMUtil.getInstance().convertToUppercaseStrings(userConfigurationType.getDataNeeded());
 				PMUtil.getInstance().convertToUppercaseStrings(userConfigurationType.getProject());
-				return runGetUserConfiguration(pmDb, userConfigurationType, rmt.getUsername(), rmt.getDomain(), cType, uType);
+				return runGetUserConfiguration(pmDb, userConfigurationType, uType.getUserName(), uType.getDomain(), cType, uType);
 			}
 
 
@@ -430,97 +465,97 @@ public class ServicesHandler extends RequestHandler {
 				name  = ((JAXBElement) obj).getName().getLocalPart();
 				log.debug("Element name is: " + name );
 				if (name.equals("set_user"))
-					return runSetUser(pmDb, project, rmt.getUsername(), (UserType) ((JAXBElement) obj).getValue() );
+					return runSetUser(pmDb, project, uType.getUserName(), (UserType) ((JAXBElement) obj).getValue() );
 				else if (name.equals("get_all_user"))
-					return runGetAllUser(pmDb, project, rmt.getUsername() );
+					return runGetAllUser(pmDb, project, uType.getUserName() );
 				else if (name.equals("set_project"))
-					return runSetProject(pmDb, project, rmt.getUsername(), (ProjectType) ((JAXBElement) obj).getValue() );
+					return runSetProject(pmDb, project, uType.getUserName(), (ProjectType) ((JAXBElement) obj).getValue() );
 				else if (name.equals("get_all_project"))
-					return runGetAllProject(pmDb, project, rmt.getUsername() );
+					return runGetAllProject(pmDb, project, uType.getUserName() );
 				else if (name.equals("set_project_request"))
-					return runSetProjectRequest(pmDb, project, rmt.getUsername(), (ProjectRequestType) ((JAXBElement) obj).getValue() );
+					return runSetProjectRequest(pmDb, project, uType.getUserName(), (ProjectRequestType) ((JAXBElement) obj).getValue() );
 
 				else if (name.equals("set_approval"))
-					return runSetApproval(pmDb, project, rmt.getUsername(), (ApprovalType) ((JAXBElement) obj).getValue() );
+					return runSetApproval(pmDb, project, uType.getUserName(), (ApprovalType) ((JAXBElement) obj).getValue() );
 				else if (name.equals("delete_approval"))
-					return runDeleteApproval(pmDb, project, rmt.getUsername(), (ApprovalType) ((JAXBElement) obj).getValue() );
+					return runDeleteApproval(pmDb, project, uType.getUserName(), (ApprovalType) ((JAXBElement) obj).getValue() );
 				else if (name.equals("get_approval"))
-					return runGetApproval(pmDb, project, rmt.getUsername(), (ApprovalType) ((JAXBElement) obj).getValue() );				
+					return runGetApproval(pmDb, project, uType.getUserName(), (ApprovalType) ((JAXBElement) obj).getValue() );				
 				else if (name.equals("get_all_approval"))
-					return runGetAllApproval(pmDb, project, rmt.getUsername() );
+					return runGetAllApproval(pmDb, project, uType.getUserName() );
 
 				else if (name.equals("set_cell"))
-					return runSetCell(pmDb, project, rmt.getUsername(), (CellDataType) ((JAXBElement) obj).getValue() );
+					return runSetCell(pmDb, project, uType.getUserName(), (CellDataType) ((JAXBElement) obj).getValue() );
 				else if (name.equals("delete_cell"))
-					return runDeleteCell(pmDb, project, rmt.getUsername(), (CellDataType) ((JAXBElement) obj).getValue() );
+					return runDeleteCell(pmDb, project, uType.getUserName(), (CellDataType) ((JAXBElement) obj).getValue() );
 				else if (name.equals("get_cell"))
-					return runGetCell(pmDb, project, rmt.getUsername(), (CellDataType) ((JAXBElement) obj).getValue() );				
+					return runGetCell(pmDb, project, uType.getUserName(), (CellDataType) ((JAXBElement) obj).getValue() );				
 				else if (name.equals("get_all_cell"))
-					return runGetAllCell(pmDb, project, rmt.getUsername() );				
+					return runGetAllCell(pmDb, project, uType.getUserName() );				
 				else if (name.equals("set_global"))
-					return runSetParam(pmDb, project, name, rmt.getUsername(), (GlobalDataType) ((JAXBElement) obj).getValue() );
+					return runSetParam(pmDb, project, name, uType.getUserName(), (GlobalDataType) ((JAXBElement) obj).getValue() );
 				else if (name.equals("set_project_param"))
-					return runSetParam(pmDb, project, name, rmt.getUsername(), (ProjectType) ((JAXBElement) obj).getValue() );
+					return runSetParam(pmDb, project, name, uType.getUserName(), (ProjectType) ((JAXBElement) obj).getValue() );
 				else if (name.equals("set_project_user_param"))
-					return runSetParam(pmDb, ((ProjectType) ((JAXBElement) obj).getValue()).getId(), name, rmt.getUsername(), (ProjectType) ((JAXBElement) obj).getValue() );
+					return runSetParam(pmDb, ((ProjectType) ((JAXBElement) obj).getValue()).getId(), name, uType.getUserName(), (ProjectType) ((JAXBElement) obj).getValue() );
 				else if (name.equals("get_all_project_user_param"))
-					return runGetAllParam(pmDb, project,  rmt.getUsername(), (ProjectType) ((JAXBElement) obj).getValue() );
+					return runGetAllParam(pmDb, project,  uType.getUserName(), (ProjectType) ((JAXBElement) obj).getValue() );
 				else if (name.equals("set_user_param"))
-					return runSetParam(pmDb, project, name, rmt.getUsername(), (UserType) ((JAXBElement) obj).getValue() );
+					return runSetParam(pmDb, project, name, uType.getUserName(), (UserType) ((JAXBElement) obj).getValue() );
 				else if (name.equals("set_cell_param"))
-					return runSetParam(pmDb, project, name, rmt.getUsername(), (CellDataType) ((JAXBElement) obj).getValue() );
+					return runSetParam(pmDb, project, name, uType.getUserName(), (CellDataType) ((JAXBElement) obj).getValue() );
 				else if (name.equals("get_all_cell_param"))
-					return runGetAllParam(pmDb, project, rmt.getUsername(),  (CellDataType) ((JAXBElement) obj).getValue() );
+					return runGetAllParam(pmDb, project, uType.getUserName(),  (CellDataType) ((JAXBElement) obj).getValue() );
 				else if (name.equals("get_all_user_param"))
-					return runGetAllParam(pmDb, project, rmt.getUsername(),  (UserType) ((JAXBElement) obj).getValue() );
+					return runGetAllParam(pmDb, project, uType.getUserName(),  (UserType) ((JAXBElement) obj).getValue() );
 				else if (name.equals("set_hive_param"))
-					return runSetParam(pmDb, project, name, rmt.getUsername(), (ConfigureType) ((JAXBElement) obj).getValue() );
+					return runSetParam(pmDb, project, name, uType.getUserName(), (ConfigureType) ((JAXBElement) obj).getValue() );
 				else if (name.equals("set_role"))
-					return runSetParam(pmDb, project, name, rmt.getUsername(), (RoleType) ((JAXBElement) obj).getValue() );
+					return runSetParam(pmDb, project, name, uType.getUserName(), (RoleType) ((JAXBElement) obj).getValue() );
 				else if (name.equals("get_all_role"))
-					return runGetAllParam(pmDb, project, rmt.getUsername(),  (RoleType) ((JAXBElement) obj).getValue() );
+					return runGetAllParam(pmDb, project, uType.getUserName(),  (RoleType) ((JAXBElement) obj).getValue() );
 				else if (name.equals("delete_role"))
-					return runDeleteParam(pmDb, project, rmt.getUsername(),  (RoleType) ((JAXBElement) obj).getValue() );
+					return runDeleteParam(pmDb, project, uType.getUserName(),  (RoleType) ((JAXBElement) obj).getValue() );
 				else if (name.equals("get_role"))
-					return runGetParam(pmDb, project, rmt.getUsername(),  (RoleType) ((JAXBElement) obj).getValue()  );
+					return runGetParam(pmDb, project, uType.getUserName(),  (RoleType) ((JAXBElement) obj).getValue()  );
 				else if (name.equals("set_hive"))
-					return runSetParam(pmDb, project, name, rmt.getUsername(), (ConfigureType) ((JAXBElement) obj).getValue() );
+					return runSetParam(pmDb, project, name, uType.getUserName(), (ConfigureType) ((JAXBElement) obj).getValue() );
 				else if (name.equals("get_all_hive"))
-					return runGetAllParam(pmDb, project, rmt.getUsername(),  new ConfigureType() );
+					return runGetAllParam(pmDb, project, uType.getUserName(),  new ConfigureType() );
 				else if (name.equals("delete_hive"))
-					return runDeleteParam(pmDb, project, rmt.getUsername(),  (ConfigureType) ((JAXBElement) obj).getValue() );
+					return runDeleteParam(pmDb, project, uType.getUserName(),  (ConfigureType) ((JAXBElement) obj).getValue() );
 				else if (name.equals("get_hive"))
-					return runGetParam(pmDb, project, rmt.getUsername(),  (ConfigureType) ((JAXBElement) obj).getValue()  );
+					return runGetParam(pmDb, project, uType.getUserName(),  (ConfigureType) ((JAXBElement) obj).getValue()  );
 				else if (name.equals("delete_project"))
-					return runDeleteProject(pmDb, rmt.getUsername(),  (ProjectType) ((JAXBElement) obj).getValue() );
+					return runDeleteProject(pmDb, uType.getUserName(),  (ProjectType) ((JAXBElement) obj).getValue() );
 				else if (name.equals("get_project"))
-					return runGetProject(pmDb, rmt.getUsername(), (ProjectType) ((JAXBElement) obj).getValue()  );
+					return runGetProject(pmDb, uType.getUserName(), (ProjectType) ((JAXBElement) obj).getValue()  );
 
 
 				log.debug("working on value");
 				value  = ((String) ((JAXBElement) obj).getValue()).trim();
 				log.debug("Element is single and is: " + value);
 				if (name.equals("delete_user"))
-					return runDeleteUser(pmDb, project, rmt.getUsername(), value );
+					return runDeleteUser(pmDb, project, uType.getUserName(), value );
 				else if (name.equals("set_password") && method != null)
 					throw new Exception(method + " authencation method is used, use that provider to change the password.");
 				else if (name.equals("set_password"))
-					return runSetPassword(pmDb, rmt.getUsername(), value );
+					return runSetPassword(pmDb, uType.getUserName(), value );
 				else if (name.equals("get_user"))
-					return runGetUser(pmDb, project, rmt.getUsername(), value );
+					return runGetUser(pmDb, project, uType.getUserName(), value );
 				else if (name.equals("get_global"))
 				{
 					ParamType param = new ParamType();
 					param.setId(Integer.valueOf(value));
 					GlobalDataType global = new GlobalDataType();
 					global.getParam().add(param);
-					return runGetParam(pmDb, project, rmt.getUsername(), global  );				
+					return runGetParam(pmDb, project, uType.getUserName(), global  );				
 				}
 				else if (name.equals("get_all_global"))
 				{
 					GlobalDataType global = new GlobalDataType ();
 					global.setProjectPath(value);
-					return runGetAllParam(pmDb, project, rmt.getUsername(), global );
+					return runGetAllParam(pmDb, project, uType.getUserName(), global );
 				}
 				else if (name.equals("delete_global"))
 				{
@@ -528,7 +563,7 @@ public class ServicesHandler extends RequestHandler {
 					param.setId(Integer.valueOf(value));
 					GlobalDataType global = new GlobalDataType();
 					global.getParam().add(param);
-					return runDeleteParam(pmDb, project, rmt.getUsername(), global);
+					return runDeleteParam(pmDb, project, uType.getUserName(), global);
 				}
 				else if (name.equals("delete_project_param"))
 				{
@@ -536,16 +571,16 @@ public class ServicesHandler extends RequestHandler {
 					param.setId(Integer.valueOf(value));
 					ProjectType global = new ProjectType();
 					global.getParam().add(param);
-					return runDeleteParam(pmDb, project, rmt.getUsername(), global);
+					return runDeleteParam(pmDb, project, uType.getUserName(), global);
 				}
 				else if (name.equals("delete_project_user_param"))
 				{
 					ParamType param = new ParamType();
 					param.setId(Integer.valueOf(value));
 					ProjectType global = new ProjectType();
-					global.setUserName(rmt.getUsername());
+					global.setUserName(uType.getUserName());
 					global.getParam().add(param);
-					return runDeleteParam(pmDb, project, rmt.getUsername(), global);
+					return runDeleteParam(pmDb, project, uType.getUserName(), global);
 				}				
 				else if (name.equals("delete_cell_param"))
 				{
@@ -553,7 +588,7 @@ public class ServicesHandler extends RequestHandler {
 					param.setId(Integer.valueOf(value));
 					CellDataType global = new CellDataType();
 					global.getParam().add(param);
-					return runDeleteParam(pmDb, project, rmt.getUsername(), global);
+					return runDeleteParam(pmDb, project, uType.getUserName(), global);
 				}					
 				else if (name.equals("delete_hive_param"))
 				{
@@ -561,29 +596,29 @@ public class ServicesHandler extends RequestHandler {
 					param.setId(Integer.valueOf(value));
 					ConfigureType global = new ConfigureType();
 					global.getParam().add(param);
-					return runDeleteParam(pmDb, project, rmt.getUsername(), global);
+					return runDeleteParam(pmDb, project, uType.getUserName(), global);
 				}					
 				else if (name.equals("delete_user_param"))
 				{
 					ParamType param = new ParamType();
 					param.setId(Integer.valueOf(value));
 					UserType global = new UserType();
-					global.setUserName(rmt.getUsername());
+					global.setUserName(uType.getUserName());
 					global.getParam().add(param);
-					return runDeleteParam(pmDb, project, rmt.getUsername(), global);
+					return runDeleteParam(pmDb, project, uType.getUserName(), global);
 				}					
 
 				else if (name.equals("get_all_hive_param"))
 				{
 					ConfigureType lcType = new ConfigureType();
 					lcType.setDomainId(value);
-					return runGetAllParam(pmDb, project, rmt.getUsername(),lcType);//(CellDataType) ((JAXBElement) obj).getValue() );
+					return runGetAllParam(pmDb, project, uType.getUserName(),lcType);//(CellDataType) ((JAXBElement) obj).getValue() );
 				}
 				else if (name.equals("get_all_project_param"))
 				{
 					ProjectType pType = new ProjectType();
 					pType.setId(value);
-					return runGetAllParam(pmDb, project, rmt.getUsername(), pType );
+					return runGetAllParam(pmDb, project, uType.getUserName(), pType );
 				}
 				/*				else if (name.equals("get_all_user_param"))
 				{
@@ -600,7 +635,7 @@ public class ServicesHandler extends RequestHandler {
 					global.setUserName("USER");
 					global.getParam().add(param);
 
-					return runGetParam(pmDb, project, rmt.getUsername(), global  );
+					return runGetParam(pmDb, project, uType.getUserName(), global  );
 
 					//					return runGetParam(pmDb, project, rmt.getUsername(), (ProjectType) ((JAXBElement) obj).getValue() );
 				}
@@ -611,7 +646,7 @@ public class ServicesHandler extends RequestHandler {
 					ProjectType global = new ProjectType();
 					global.getParam().add(param);
 
-					return runGetParam(pmDb, project, rmt.getUsername(), global  );
+					return runGetParam(pmDb, project, uType.getUserName(), global  );
 				}
 				else if (name.equals("get_cell_param"))
 				{
@@ -620,7 +655,7 @@ public class ServicesHandler extends RequestHandler {
 					CellDataType global = new CellDataType();
 					global.getParam().add(param);
 
-					return runGetParam(pmDb, project, rmt.getUsername(), global  );
+					return runGetParam(pmDb, project, uType.getUserName(), global  );
 				}
 				else if (name.equals("get_user_param"))
 				{
@@ -629,7 +664,7 @@ public class ServicesHandler extends RequestHandler {
 					UserType global = new UserType();
 					global.getParam().add(param);
 
-					return runGetParam(pmDb, project, rmt.getUsername(), global  );
+					return runGetParam(pmDb, project, uType.getUserName(), global  );
 				}
 				else if (name.equals("get_hive_param"))
 				{
@@ -638,11 +673,11 @@ public class ServicesHandler extends RequestHandler {
 					ConfigureType global = new ConfigureType();
 					global.getParam().add(param);
 
-					return runGetParam(pmDb, project, rmt.getUsername(), global  );
+					return runGetParam(pmDb, project, uType.getUserName(), global  );
 				}
 				else if (name.equals("get_all_project_request"))
 				{
-					return runGetAllProjectRequest(pmDb, project, rmt.getUsername()  );
+					return runGetAllProjectRequest(pmDb, project, uType.getUserName()  );
 				}				
 				else if (name.equals("get_project_request"))
 				{
@@ -2076,6 +2111,101 @@ public class ServicesHandler extends RequestHandler {
 	}
 
 
+	/*private String getUsername()
+	{
+		String username = null;
+		try{
+		System.out.println("Inside user name");
+		//stub._getServiceContext().getCurrentOperationContext().getMessageContext("In");
+		//context = MessageContext.getCurrentMessageContext();
+		System.out.println("context:"+context);
+		HttpServletRequest  request = (HttpServletRequest) context.getProperty("transport.http.servletRequest");
+		String ticketVal = null ;
+		
+		if(request != null)
+		{
+			ticketVal = request.getParameter("ticket");
+			System.out.println("ticketVal++"+ticketVal);
+		}
+		System.out.println("+++request+++"+request);
+		log.debug("+++request+++"+request);
+		log.info("+++request+++"+request);
+		String addr = "";
+		
+		 addr = appProperties.getProperty(CAS_URL_PROPERTY_NAME) + "proxyValidate?"
+		    + "service=" + URLEncoder.encode("http://localhost:9090"+request.getRequestURI().toString(), "UTF-8")
+		    + "&ticket="+ticketVal;
+		
+		log.debug("CAS validation address: " + addr);
+		System.out.println("FORWARD ADDRESS++++++++:"+addr);
+		log.debug("FORWARD ADDRESS++++++++:"+addr);
+		log.info("FORWARD ADDRESS++++++++:"+addr);
+		BufferedReader body = URLOpener.open(addr);
+	        try {
+		    StringBuilder builder = new StringBuilder();
+		    String line;
+		    while ((line = body.readLine()) != null) {
+			builder.append(line);
+		    }
+		    String response = builder.toString();
+		    System.out.println("+++++response+++:"+response);
+		    int start = response.indexOf("<cas:authenticationSuccess");
+		    
+		    if (start > -1) {
+		    	start = response.indexOf(">", start);
+		    	if (start < 0) {
+		    	    log.error("Unexpected response from CAS: " + response);
+		    	    throw new Exception("EINTERNAL");
+		    	}
+			start += 1;
+			start = response.indexOf("<cas:user", start);
+			if (start < 0) {
+			    log.error("Unexpected response from CAS: " + response);
+			    throw new Exception("EINTERNAL");
+			} else {
+			    start = response.indexOf(">", start);
+			    if (start < 0) {
+		    	        log.error("Unexpected response from CAS: " + response);
+		    	        throw new Exception("EINTERNAL");
+		    	    }
+			    start += 1;
+			    int finish = response.indexOf("</cas:user", start);
+			    if (finish < 0) {
+				log.error("Unexpected response from CAS: " + response);
+				throw new Exception("EINTERNAL");
+			    } else {
+				username = response.substring(start, finish).trim();
+			    }
+			}
+		    } else {
+			if (response.contains("<cas:authenticationFailure")) {
+			    log.debug("CAS authentication result negative");
+			    throw new Exception("EAUTHENTICATION");
+			} else {
+			    log.error("Unexpected response from CAS: " + response);
+			    throw new Exception("EINTERNAL");
+			}
+		    }
+
+	            log.debug("CAS authenticated user:" + username);
+
+	        }finally {
+	            if (body != null) {
+	                try {
+	                    body.close();
+	                } catch (IOException e) 
+	                {
+	                	e.printStackTrace();
+	                }
+	            }
+	        }
+		}catch(Exception e)
+		{
+			e.printStackTrace();
+		}
+		return username;
+	}*/
+	
 
 
 }

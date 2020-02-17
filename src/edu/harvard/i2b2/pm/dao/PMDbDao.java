@@ -153,7 +153,7 @@ public class PMDbDao extends JdbcDaoSupport {
 
 	@SuppressWarnings("unchecked")
 	public List<DBInfoType> getEnvironment(String domainId) throws I2B2Exception, I2B2DAOException { 
-		String sql =  "select * from pm_hive_data where status_cd <> 'D'";
+		String sql =  "select * from pm_hive_data where active='1' and status_cd <> 'D'";
 
 		if (domainId != null) 
 			sql += " and domain_id = ?";
@@ -1011,16 +1011,27 @@ public class PMDbDao extends JdbcDaoSupport {
 
 	public int setSession(String userId, String sessionId, int timeout)
 	{
-		String addSql = "insert into pm_user_session " + 
-				"(user_id, session_id, changeby_char, entry_date, expired_date) values (?,?,?,?,?)";
+		
+		String addSql = "";
+
+		if (database.equalsIgnoreCase("oracle"))
+			 addSql = "insert into pm_user_session " + 
+					"(user_id, session_id, changeby_char, entry_date, expired_date) values (?,?,?, systimestamp, systimestamp+numtodsinterval(" + (timeout * 1000) + ",'SECOND'))";
+		else if (database.equalsIgnoreCase("Microsoft sql server"))
+			 addSql = "insert into pm_user_session " + 
+					"(user_id, session_id, changeby_char, entry_date, expired_date) values (?,?,?, getdate(), DATEADD(ms," + timeout + ",getdate()))";
+		else if (database.equalsIgnoreCase("postgresql"))
+			 addSql = "insert into pm_user_session " + 
+					"(user_id, session_id, changeby_char, entry_date, expired_date) values (?,?,?,now(),  now() + interval '" + timeout + " millisecond')";
+
 		Calendar now = Calendar.getInstance();
 		now.add(Calendar.MILLISECOND, timeout);
 		int numRowsAdded = jt.update(addSql, 
 				userId,
 				sessionId,
-				userId,
-				Calendar.getInstance().getTime(),
-				now.getTime());	
+				userId);
+				//Calendar.getInstance().getTime(),
+				//now.getTime());	
 
 		return numRowsAdded;
 	}
@@ -1419,7 +1430,7 @@ public class PMDbDao extends JdbcDaoSupport {
 		{
 			if (((ConfigureType) utype).getDomainId() == null)
 			{
-				sql =  "select * from pm_hive_data where  status_cd<>'D' order by domain_id";
+				sql =  "select * from pm_hive_data where status_cd<>'D' order by domain_id";
 				queryResult = jt.query(sql, getEnvironment());
 			} else {
 				sql =  "select * from pm_hive_params where domain_id=? and status_cd<>'D'";
@@ -1555,7 +1566,7 @@ public class PMDbDao extends JdbcDaoSupport {
 								((ConfigureType) utype).getParam().get(0).getId());
 
 				} else {
-					String sql =  "select * from pm_hive_data where domain_id=? " + 	(showStatus == false? "" :" and status_cd<>'D'");
+					String sql =  "select * from pm_hive_data where active = '1' and domain_id=? " + 	(showStatus == false? "" :" and status_cd<>'D'");
 
 					if (((ConfigureType) utype).getParam().get(0).getId() != null)
 						queryResult = jt.query(sql, getEnvironment(), 						
