@@ -1,8 +1,13 @@
-/*
- * Copyright (c) 2006-2007 Massachusetts General Hospital 
+/*******************************************************************************
+ * Copyright (c) 2006-2018 Massachusetts General Hospital 
  * All rights reserved. This program and the accompanying materials 
- * are made available under the terms of the i2b2 Software License v1.0 
- * which accompanies this distribution. 
+ * are made available under the terms of the Mozilla Public License,
+ * v. 2.0. If a copy of the MPL was not distributed with this file, You can
+ * obtain one at http://mozilla.org/MPL/2.0/. I2b2 is also distributed under
+ * the terms of the Healthcare Disclaimer.
+ ******************************************************************************/
+/*
+
  * 
  * Contributors:
  * 		Lori Phillips
@@ -10,6 +15,7 @@
 package edu.harvard.i2b2.pm.util;
 
 import java.io.StringWriter;
+
 
 /**
  * StringUtil class to perform string parsing tasks
@@ -27,6 +33,14 @@ public class StringUtil {
     
     public static StringUtil getInstance() {
         return thisInstance;
+    }
+    
+    public static String humanReadableByteCount(long bytes, boolean si) {
+        int unit = si ? 1000 : 1024;
+        if (bytes < unit) return bytes + " B";
+        int exp = (int) (Math.log(bytes) / Math.log(unit));
+        String pre = (si ? "kMGTPE" : "KMGTPE").charAt(exp-1) + (si ? "" : "i");
+        return String.format("%.1f %sB", bytes / Math.pow(unit, exp), pre);
     }
     
     public static String getTableCd(String fullPath) {
@@ -87,4 +101,5 @@ public class StringUtil {
 		}
 		return number;
 	}
+	
 }

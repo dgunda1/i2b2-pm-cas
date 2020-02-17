@@ -9,21 +9,38 @@
 package edu.harvard.i2b2.pm.util;
 
 import java.util.Hashtable;
+import java.util.Properties;
 
-import jcifs.UniAddress;
-import jcifs.smb.NtlmPasswordAuthentication;
-import jcifs.smb.SmbAuthException;
-import jcifs.smb.SmbException;
-import jcifs.smb.SmbSession;
+import com.hierynomus.smbj.SMBClient;
+import com.hierynomus.smbj.auth.AuthenticationContext;
+import com.hierynomus.smbj.connection.Connection;
+import com.hierynomus.smbj.session.Session;
 
-public class SecurityAuthenticationNTLM implements SecurityAuthentication {
+
+public class SecurityAuthenticationNTLM2 implements SecurityAuthentication {
 
 	@Override
 	public boolean validateUser(String username, String password,
 			Hashtable params) throws Exception {
 
-		String domainController= "", domain= "";
+	
+	    SMBClient client = new SMBClient();
 
+	    try (
+	    		Connection connection = client.connect((String) params.get("domain_controller"))) {
+	        AuthenticationContext ac = new AuthenticationContext(username, password .toCharArray(), (String) params.get("domain"));
+	        Session session = connection.authenticate(ac);
+
+	        session.getConnection();
+	        session.close();
+	        return true;
+	    } catch(Exception se ) {
+			// NETWORK PROBLEMS?
+			throw new Exception (se.getMessage());
+		}
+		
+		
+		/*
 		UniAddress mydomaincontroller = UniAddress.getByName( (String) params.get("domain_controller") );
 		NtlmPasswordAuthentication mycreds = new NtlmPasswordAuthentication( (String) params.get("domain"), username, password );
 		try {
@@ -38,7 +55,7 @@ public class SecurityAuthenticationNTLM implements SecurityAuthentication {
 			// NETWORK PROBLEMS?
 			throw new Exception (se.getMessage());
 		}
-
+	*/
 	}
 
 }
