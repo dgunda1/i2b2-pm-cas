@@ -23,6 +23,16 @@ import java.text.NumberFormat;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+
+import edu.harvard.i2b2.common.exception.I2B2Exception;
+import edu.harvard.i2b2.common.util.jaxb.JAXBUtilException;
+import edu.harvard.i2b2.pm.datavo.i2b2message.ResponseMessageType;
+import edu.harvard.i2b2.pm.delegate.RequestHandler;
+import edu.harvard.i2b2.pm.delegate.ServicesHandler;
+import edu.harvard.i2b2.pm.delegate.ServicesHandlerCAS;
+import edu.harvard.i2b2.pm.ws.ExecutorRunnable;
+import edu.harvard.i2b2.pm.ws.MessageFactory;
+
 import javax.xml.stream.XMLStreamException;
 
 import org.apache.axiom.om.OMElement;
@@ -30,10 +40,6 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 
-import edu.harvard.i2b2.common.exception.I2B2Exception;
-import edu.harvard.i2b2.common.util.jaxb.JAXBUtilException;
-import edu.harvard.i2b2.pm.datavo.i2b2message.ResponseMessageType;
-import edu.harvard.i2b2.pm.delegate.ServicesHandler;
 import edu.harvard.i2b2.pm.util.AppVersion;
 import edu.harvard.i2b2.pm.util.StringUtil;
 
@@ -214,7 +220,7 @@ public class PMService {
 		 */
 
 		OMElement returnElement = null;
-
+		
 
 		if (getPMDataElement == null) {
 			log.error("Incoming PM request is null");
@@ -252,11 +258,14 @@ public class PMService {
 			//er.setInputString(requestElementString);
 			log.debug("begin setRequestHandler, my servicesMsg: " + servicesMsg);
 
-			er.setRequestHandler(new ServicesHandler(servicesMsg));
-			log.debug("middle setRequestHandler");
 
+		//er.setRequestHandler(new ServicesHandler(servicesMsg));
+                er.setRequestHandler(new ServicesHandlerCAS(servicesMsg));
+		log.debug("middle setRequestHandler");
+		
+		
+		log.debug("end setRequestHandler");
 
-			log.debug("end setRequestHandler");
 
 
 			Thread t = new Thread(er);
@@ -266,22 +275,40 @@ public class PMService {
 			synchronized (t) {
 				t.start();
 
-				try {
-					//if (waitTime > 0) {
-					//	t.wait(waitTime);
-					//} else {
-					//	t.wait();
-					//}
+			try {
+				//if (waitTime > 0) {
+				//	t.wait(waitTime);
+				//} else {
+				//	t.wait();
+				//}
 
-					long startTime = System.currentTimeMillis(); 
-					long deltaTime = -1; 
-					while((er.isJobCompleteFlag() == false)&& (deltaTime < waitTime)){ 
-						if (waitTime > 0) { 
-							t.wait(waitTime - deltaTime); 
-							deltaTime = System.currentTimeMillis() - startTime; 
-						} else { 
-							t.wait(); 
-						} 
+				 long startTime = System.currentTimeMillis(); 
+                 long deltaTime = -1; 
+                 while((er.isJobCompleteFlag() == false)&& (deltaTime < waitTime)){ 
+                         if (waitTime > 0) { 
+                                 t.wait(waitTime - deltaTime); 
+                                 deltaTime = System.currentTimeMillis() - startTime; 
+                         } else { 
+                                 t.wait(); 
+                         } 
+                 } 
+				pmDataResponse = er.getOutputString();
+
+				if (pmDataResponse == null) {
+					if (er.getJobException() != null) {
+						pmDataResponse = "";
+						throw new I2B2Exception("Portal is not property configured.");
+					} 
+					else if (er.isJobCompleteFlag() == false) {
+						String timeOuterror = "Result waittime millisecond <result_waittime_ms> :" +
+						waitTime +
+						" elapsed, try again with increased value";
+						log.debug(timeOuterror);
+
+						responseMsgType = MessageFactory.doBuildErrorResponse(null,
+								timeOuterror);
+						pmDataResponse = MessageFactory.convertToXMLString(responseMsgType);
+
 					} 
 					pmDataResponse = er.getOutputString();
 
