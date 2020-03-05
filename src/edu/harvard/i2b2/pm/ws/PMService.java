@@ -23,7 +23,6 @@ import java.text.NumberFormat;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-
 import edu.harvard.i2b2.common.exception.I2B2Exception;
 import edu.harvard.i2b2.common.util.jaxb.JAXBUtilException;
 import edu.harvard.i2b2.pm.datavo.i2b2message.ResponseMessageType;
@@ -39,10 +38,8 @@ import org.apache.axiom.om.OMElement;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-
 import edu.harvard.i2b2.pm.util.AppVersion;
 import edu.harvard.i2b2.pm.util.StringUtil;
-
 
 /**
  * This is webservice skeleton class. It passes incoming report to PFT parser
@@ -56,18 +53,15 @@ public class PMService {
 	private static String msgVersion = "1.1";
 	private static String i2b2Version = "1.7.11";
 
-	public String getVersion()
-	{
+	public String getVersion() {
 		return i2b2Version;
 	}
-	
-	public String getMessageVersion()
-	{
+
+	public String getMessageVersion() {
 		return msgVersion;
 	}
-	
-	public OMElement getVersion(OMElement getPMDataElement)
-			throws I2B2Exception, JAXBUtilException {
+
+	public OMElement getVersion(OMElement getPMDataElement) throws I2B2Exception, JAXBUtilException {
 
 		Pattern p = Pattern.compile("<password>.+</password>");
 		Matcher m = p.matcher(getPMDataElement.toString());
@@ -80,18 +74,18 @@ public class PMService {
 
 		OMElement returnElement = null;
 
-
 		if (getPMDataElement == null) {
 			log.error("Incoming Version request is null");
 			throw new I2B2Exception("Incoming Version request is null");
 		}
 
 		String messageBody = "get_i2b2_message_version";
-		
+
 		try {
 			messageBody = outString.toLowerCase().substring(outString.indexOf("message_body"));
-		} catch (Exception e){}
-		
+		} catch (Exception e) {
+		}
+
 		edu.harvard.i2b2.pm.datavo.i2b2versionmessage.ResponseMessageType pmDataResponse = new edu.harvard.i2b2.pm.datavo.i2b2versionmessage.ResponseMessageType();
 
 		edu.harvard.i2b2.pm.datavo.i2b2versionmessage.ResponseMessageType.MessageBody mb = new edu.harvard.i2b2.pm.datavo.i2b2versionmessage.ResponseMessageType.MessageBody();
@@ -102,38 +96,37 @@ public class PMService {
 		if (messageBody.contains("get_jdk_version"))
 			mb.setJdkVersion(System.getProperty("java.vendor") + " Java " + System.getProperty("java.version"));
 		if (messageBody.contains("get_os_version"))
-			mb.setOsVersion( System.getProperty("os.name") + " " + System.getProperty("os.arch") + " " + System.getProperty("os.version"));
-		if (messageBody.contains("get_java_memory"))
-		{
+			mb.setOsVersion(System.getProperty("os.name") + " " + System.getProperty("os.arch") + " "
+					+ System.getProperty("os.version"));
+		if (messageBody.contains("get_java_memory")) {
 			Runtime r = Runtime.getRuntime();
 			String result = "Total Memory: " + StringUtil.humanReadableByteCount(r.totalMemory(), true);
-			result += "\nMax Memory: " +  StringUtil.humanReadableByteCount( r.maxMemory(), true);
-			result += "\nUsed Memory: " +   StringUtil.humanReadableByteCount((r.maxMemory() -  r.freeMemory()), true);
-			result += "\nFree Memory: " +  StringUtil.humanReadableByteCount(r.freeMemory(), true);
+			result += "\nMax Memory: " + StringUtil.humanReadableByteCount(r.maxMemory(), true);
+			result += "\nUsed Memory: " + StringUtil.humanReadableByteCount((r.maxMemory() - r.freeMemory()), true);
+			result += "\nFree Memory: " + StringUtil.humanReadableByteCount(r.freeMemory(), true);
 
 			mb.setJavaMemory(result);
 		}
-		if (messageBody.contains("app_server_version")) 
-		{
+		if (messageBody.contains("app_server_version")) {
 			try {
 				mb.setAppServerVersion(AppVersion.appServerRunningVersion());
-			} catch (Exception e)
-			{
+			} catch (Exception e) {
 				mb.setAppServerVersion(e.getMessage());
 			}
 		}
-		if (messageBody.contains("get_disk_usage"))
-		{
+		if (messageBody.contains("get_disk_usage")) {
 			String result = "";
 			NumberFormat nf = NumberFormat.getNumberInstance();
 			for (Path root : FileSystems.getDefault().getRootDirectories()) {
 				try {
 					FileStore store = Files.getFileStore(root);
-					result += "\nTotal Space for " + root + ": " + StringUtil.humanReadableByteCount(store.getTotalSpace(), true);
-					result += "\nUnallocated Space for " + root + ": " + StringUtil.humanReadableByteCount(store.getUnallocatedSpace(), true);
-					result += "\nUsable Space for " + root + ": " + StringUtil.humanReadableByteCount(store.getUsableSpace(), true);
-				} catch (Exception e)
-				{
+					result += "\nTotal Space for " + root + ": "
+							+ StringUtil.humanReadableByteCount(store.getTotalSpace(), true);
+					result += "\nUnallocated Space for " + root + ": "
+							+ StringUtil.humanReadableByteCount(store.getUnallocatedSpace(), true);
+					result += "\nUsable Space for " + root + ": "
+							+ StringUtil.humanReadableByteCount(store.getUsableSpace(), true);
+				} catch (Exception e) {
 					result += "Erron on " + root;
 				}
 			}
@@ -141,8 +134,7 @@ public class PMService {
 				result = result.substring(1);
 			mb.setDiskUsage(result);
 		}
-		if (messageBody.contains("get_axis2_version"))
-		{
+		if (messageBody.contains("get_axis2_version")) {
 			mb.setAxis2Version(org.apache.axis2.Version.getVersionText());
 		}
 		pmDataResponse.setMessageBody(mb);
@@ -154,10 +146,8 @@ public class PMService {
 			log.debug("my pm repsonse is: " + pmDataResponse);
 			log.debug("my return is: " + returnElement);
 		} catch (XMLStreamException e) {
-			log.error("Error creating OMElement from response string " +
-					pmDataResponse, e);
+			log.error("Error creating OMElement from response string " + pmDataResponse, e);
 		}
-
 
 		return returnElement;
 
@@ -290,26 +280,7 @@ public class PMService {
                                  deltaTime = System.currentTimeMillis() - startTime; 
                          } else { 
                                  t.wait(); 
-                         } 
-                 } 
-				pmDataResponse = er.getOutputString();
-
-				if (pmDataResponse == null) {
-					if (er.getJobException() != null) {
-						pmDataResponse = "";
-						throw new I2B2Exception("Portal is not property configured.");
-					} 
-					else if (er.isJobCompleteFlag() == false) {
-						String timeOuterror = "Result waittime millisecond <result_waittime_ms> :" +
-						waitTime +
-						" elapsed, try again with increased value";
-						log.debug(timeOuterror);
-
-						responseMsgType = MessageFactory.doBuildErrorResponse(null,
-								timeOuterror);
-						pmDataResponse = MessageFactory.convertToXMLString(responseMsgType);
-
-					} 
+                         }  
 					pmDataResponse = er.getOutputString();
 
 					if (pmDataResponse == null) {
@@ -328,7 +299,8 @@ public class PMService {
 							pmDataResponse = MessageFactory.convertToXMLString(responseMsgType);
 						} 
 					}
-				} catch (InterruptedException e) {
+				}
+			}catch (InterruptedException e) {
 					log.error("Error in thread: " + e.getMessage());
 
 					e.printStackTrace();
@@ -358,10 +330,3 @@ public class PMService {
 
 	}
 }
-
-
-
-
-
-
-

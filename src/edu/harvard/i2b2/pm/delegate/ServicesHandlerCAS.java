@@ -79,7 +79,8 @@ public class ServicesHandlerCAS extends ServicesHandler {
     	
 	// Support password-based accounts too for OBFSC_SERVICE_ACCOUNT and other clients.
         if (service != null && !service.isEmpty()) {
-	    return super.validateSuppliedPassword(service, ticket, param);
+        	boolean skipValidation = true;
+	    return super.validateSuppliedPassword(service, ticket, param, skipValidation);
         }
     
         HttpServletRequest request = (HttpServletRequest) context.getProperty("transport.http.servletRequest");

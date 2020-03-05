@@ -603,13 +603,13 @@ protected UserType validateSuppliedPassword (String username, String password, H
 				else if (name.equals("delete_project"))
 					return runDeleteProject(pmDb, uType.getUserName(),  (ProjectType) ((JAXBElement) obj).getValue() );
 				else if (name.equals("get_project"))
-					return runGetProject(pmDb, uType.getUsername(), (ProjectType) ((JAXBElement) obj).getValue()  );
+					return runGetProject(pmDb, uType.getUserName(), (ProjectType) ((JAXBElement) obj).getValue()  );
 				else if (name.equals("set_datasource"))
-					return runSetDatasource(pmDb, uType.getUsername(), (DatasourceType)  ((JAXBElement) obj).getValue()  );
+					return runSetDatasource(pmDb, uType.getUserName(), (DatasourceType)  ((JAXBElement) obj).getValue()  );
 				else if (name.equals("get_all_datasource"))
-					return runGetAllDatasource(pmDb, project, uType.getUsername() );
+					return runGetAllDatasource(pmDb, project, uType.getUserName() );
 				else if (name.equals("get_user_login"))
-					return runUserLogin(pmDb, uType.getUsername(),  (UserLoginType) ((JAXBElement) obj).getValue()  );
+					return runUserLogin(pmDb, uType.getUserName(),  (UserLoginType) ((JAXBElement) obj).getValue()  );
 
 
 
