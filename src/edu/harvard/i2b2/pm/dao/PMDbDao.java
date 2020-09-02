@@ -144,7 +144,7 @@ public class PMDbDao extends JdbcDaoSupport {
 	}
 
 	@SuppressWarnings("unchecked")
-	public List<ConfigureType> getEnvironment(String domainId) throws I2B2Exception, I2B2DAOException { 
+	public List<DBInfoType> getEnvironment(String domainId) throws I2B2Exception, I2B2DAOException { 
 		String sql =  "select * from pm_hive_data where active='1' and status_cd <> 'D'";
 
 		if (domainId != null) 
