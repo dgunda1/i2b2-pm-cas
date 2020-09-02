@@ -68,12 +68,12 @@ public class ServicesHandlerCAS extends ServicesHandler {
     }
 
     protected UserType validateSuppliedPassword (String service, 
-            String ticket, Hashtable param) throws Exception {
+            String ticket, Hashtable param, boolean skipValidation) throws Exception {
 
 	// support password-based accounts too for OBFSC_SERVICE_ACCOUNT
 	if (! (service.startsWith("http:")
 	       || service.startsWith("https:"))){
-	    return super.validateSuppliedPassword(service, ticket, param);
+	    return super.validateSuppliedPassword(service, ticket, param,skipValidation);
 	}
 	
 	MessageContext context = MessageContext.getCurrentMessageContext();

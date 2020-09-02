@@ -44,7 +44,7 @@
 	<!-- 								COMMON JAXB GENERATION 				 -->
 	<!-- =================================================================== -->
 	<target name="jaxb_gen" depends="init" description="Generate JAXB classes for i2b2 and Vocab Data messages">
-		<exec executable="xjc">
+<!--		<exec executable="xjc">
 					        <arg value="-d"/>
 					        <arg value="${gensrc}"/>
 					        <arg value="../${i2b2xmlproject}/xsd/cell/pm_1.1/PM_USER.xsd"/>
@@ -58,7 +58,7 @@
 				        <arg value="./etc/xsd_1.1/i2b2_version_bindings.xjb"/>
 
 			</exec>
-			<!--				<xjc destdir="${gensrc}" removeOldOutput="no">
+-->							<xjc destdir="${gensrc}" removeOldOutput="no">
 					
 					<schema dir="../${i2b2xmlproject}/xsd/cell/pm_1.1" includes="PM_USER.xsd" />
 					<schema dir="../${i2b2xmlproject}/xsd/hive/msg_1.1" includes="i2b2_response.xsd" />
@@ -67,7 +67,7 @@
 					<binding dir="." includes="etc/xsd_1.1/i2b2_response_message_bindings.xjb" />
 					<binding dir="." includes="etc/xsd_1.1/i2b2_version_bindings.xjb" />
 				</xjc>
-				-->
+				
 		</target>
 
 	<!-- =================================================================== -->
