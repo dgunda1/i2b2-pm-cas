@@ -45,6 +45,7 @@ public class ServicesHandlerCAS extends ServicesHandler {
     private static final String CAS_URL_PROPERTY_NAME = "cas.url";
     private static final String CAS_DEFAULT_URL = "https://localhost:8443/cas-server/";
     private static final Properties appProperties = new Properties();
+    private MessageContext context = null;
     static {
         try {
             FileReader fr = new FileReader(CONFIG_PATHNAME);
@@ -66,6 +67,7 @@ public class ServicesHandlerCAS extends ServicesHandler {
 
     public ServicesHandlerCAS(ServicesMessage servicesMsg) throws I2B2Exception{
 	super(servicesMsg);
+	context = MessageContext.getCurrentMessageContext();
 	log.debug("cas url :" + appProperties.getProperty(CAS_URL_PROPERTY_NAME));
     }
 
@@ -80,7 +82,6 @@ public class ServicesHandlerCAS extends ServicesHandler {
 	}
 	
 	log.debug("Inside VAlidate Pass service CAS");
-	MessageContext context = MessageContext.getCurrentMessageContext();
 	log.debug("+++Context+++"+context);
 	log.debug("+++Chceking the MessageContext object+++"+ MessageContext.getCurrentMessageContext());
 	HttpServletRequest  request = (HttpServletRequest) context.getProperty("transport.http.servletRequest");
