@@ -81,6 +81,8 @@ public class ServicesHandlerCAS extends ServicesHandler {
 	
 	log.debug("Inside VAlidate Pass service CAS");
 	MessageContext context = MessageContext.getCurrentMessageContext();
+	log.debug("+++Context+++"+context);
+	log.debug("+++Chceking the MessageContext object+++"+ MessageContext);
 	HttpServletRequest  request = (HttpServletRequest) context.getProperty("transport.http.servletRequest");
 	System.out.println("+++request+++"+request);
 	log.debug("+++request+++"+request);
