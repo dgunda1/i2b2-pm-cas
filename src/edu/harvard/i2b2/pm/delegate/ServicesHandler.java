@@ -436,8 +436,8 @@ public class ServicesHandler extends RequestHandler {
 							}
 
 							//if password was good then set info and generate a new session key
-							uType.setUserName(rmt.getUsername());
-							uType.setDomain(rmt.getDomain());
+							//uType.setUserName(rmt.getUsername());
+							//uType.setDomain(rmt.getDomain());
 
 							//SessionKey newKey;
 
