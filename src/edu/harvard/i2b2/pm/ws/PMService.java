@@ -222,7 +222,7 @@ public class PMService {
 		 */
 
 		OMElement returnElement = null;
-
+		
 
 		if (getPMDataElement == null) {
 			log.error("Incoming PM request is null");
@@ -264,6 +264,7 @@ public class PMService {
 			log.debug("middle setRequestHandler");
 
 
+
 			log.debug("end setRequestHandler");
 
 
@@ -290,6 +291,7 @@ public class PMService {
 						} else { 
 							t.wait(); 
 						} 
+
 					} 
 					pmDataResponse = er.getOutputString();
 
