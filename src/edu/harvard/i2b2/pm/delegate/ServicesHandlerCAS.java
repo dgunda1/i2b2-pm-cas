@@ -4,6 +4,7 @@
  */
 package edu.harvard.i2b2.pm.delegate;
 
+
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.URLConnection;
@@ -26,6 +27,8 @@ import javax.servlet.http.HttpServletRequest;
 
 import org.apache.axis2.context.MessageContext;
 
+import com.ibm.wsdl.extensions.http.HTTPConstants;
+
 /**
  * ServicesHandlerCAS validates users using
  * JA-SIG Central Authentication Service (CAS).
@@ -41,13 +44,11 @@ public class ServicesHandlerCAS extends ServicesHandler {
     private static final String CONFIG_PATHNAME="/etc/eureka/application.properties";
     private static final String CAS_URL_PROPERTY_NAME = "cas.url";
     private static final String CAS_DEFAULT_URL = "https://localhost:8443/cas-server/";
-    private static final String I2B2_SERVICES_URL = "i2b2.services.url";
-    private static final String I2B2_SERVICES_DEFAULT_URL = "http://localhost:9090/i2b2/services/PMService/";
-    
     private static final Properties appProperties = new Properties();
-    
+    private MessageContext context = null;
     static {
-        try (FileReader fr = new FileReader(CONFIG_PATHNAME)) {
+        try {
+            FileReader fr = new FileReader(CONFIG_PATHNAME);
             appProperties.load(fr);
             String readCasUrl = appProperties.getProperty(CAS_URL_PROPERTY_NAME);
             if (readCasUrl == null) {
@@ -55,43 +56,45 @@ public class ServicesHandlerCAS extends ServicesHandler {
             } else if (!readCasUrl.endsWith("/")) {
                 appProperties.setProperty(CAS_URL_PROPERTY_NAME, readCasUrl + "/");
             }
-	    String readI2b2ServicesUrl = appProperties.getProperty(I2B2_SERVICES_URL);
-	    if (readI2b2ServicesUrl == null) {
-		appProperties.setProperty(I2B2_SERVICES_URL, I2B2_SERVICES_DEFAULT_URL);
-	    }
+            fr.close();
+            fr = null;
         } catch (FileNotFoundException ex) {
             appProperties.setProperty(CAS_URL_PROPERTY_NAME, CAS_DEFAULT_URL);
-	    appProperties.setProperty(I2B2_SERVICES_URL, I2B2_SERVICES_DEFAULT_URL);
         } catch (IOException ex) {
             throw new IllegalStateException("Error reading CAS integration configuration file " + CONFIG_PATHNAME, ex);
         }
     }
 
-    private MessageContext context = null;
-
     public ServicesHandlerCAS(ServicesMessage servicesMsg) throws I2B2Exception{
 	super(servicesMsg);
 	context = MessageContext.getCurrentMessageContext();
+	log.debug("cas url :" + appProperties.getProperty(CAS_URL_PROPERTY_NAME));
     }
 
     protected UserType validateSuppliedPassword (String service, 
-            String ticket, Hashtable param) throws Exception {
-    	
-	// Support password-based accounts too for OBFSC_SERVICE_ACCOUNT and other clients.
-        if (service != null && !service.isEmpty()) {
-	    return super.validateSuppliedPassword(service, ticket, param);
-        }
-    
-        HttpServletRequest request = (HttpServletRequest) context.getProperty("transport.http.servletRequest");
-	if (request != null) {
-	    ticket = request.getParameter("ticket");
+            String ticket, Hashtable param, boolean skipValidation) throws Exception {
+		log.debug("Inside VAlidate Password Service:" + service + "params" + param.toString() + " Ticket :" + ticket);
+	// support password-based accounts too for OBFSC_SERVICE_ACCOUNT
+	if (! (service.startsWith("http:")
+	       || service.startsWith("https:"))){
+		log.debug("Inside VAlidate Pass service not cas");
+	    return super.validateSuppliedPassword(service, ticket, param,skipValidation);
 	}
 	
+	log.debug("Inside VAlidate Pass service CAS");
+	log.debug("+++Context+++"+context);
+	log.debug("+++Chceking the MessageContext object+++"+ MessageContext.getCurrentMessageContext());
+	HttpServletRequest  request = (HttpServletRequest) context.getProperty("transport.http.servletRequest");
+	System.out.println("+++request+++"+request);
+	log.debug("+++request+++"+request);
+	log.info("+++request+++"+request);
 	String addr = appProperties.getProperty(CAS_URL_PROPERTY_NAME) + "proxyValidate?"
-	    + "service=" + URLEncoder.encode(appProperties.getProperty(I2B2_SERVICES_URL), "UTF-8")
+	    + "service=" + URLEncoder.encode(service, "UTF-8")
 	    + "&ticket=" + URLEncoder.encode(ticket, "UTF-8");
 	log.debug("CAS validation address: " + addr);
-	
+	System.out.println("FORWARD ADDRESS++++++++:"+addr);
+	log.debug("FORWARD ADDRESS++++++++:"+addr);
+	log.info("FORWARD ADDRESS++++++++:"+addr);
 	BufferedReader body = URLOpener.open(addr);
         try {
 	    StringBuilder builder = new StringBuilder();

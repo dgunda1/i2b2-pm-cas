@@ -1,21 +1,23 @@
-/*
- * Copyright (c) 2006-2007 Massachusetts General Hospital 
+/*******************************************************************************
+ * Copyright (c) 2006-2018 Massachusetts General Hospital 
  * All rights reserved. This program and the accompanying materials 
- * are made available under the terms of the i2b2 Software License v1.0 
- * which accompanies this distribution. 
+ * are made available under the terms of the Mozilla Public License,
+ * v. 2.0. If a copy of the MPL was not distributed with this file, You can
+ * obtain one at http://mozilla.org/MPL/2.0/. I2b2 is also distributed under
+ * the terms of the Healthcare Disclaimer.
+ ******************************************************************************/
+/*
+
  * 
  * Contributors:
  * 		Lori Phillips
  */
 package edu.harvard.i2b2.pm.dao;
 
-import java.io.IOException;
-import java.sql.Clob;
 import java.sql.Connection;
 import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.sql.Types;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -31,22 +33,22 @@ import javax.xml.datatype.XMLGregorianCalendar;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.jdom.JDOMException;
-import org.jdom.input.SAXBuilder;
-import org.jdom.output.DOMOutputter;
-import org.springframework.dao.DataAccessException;
-import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.simple.ParameterizedRowMapper;
-import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
-import org.springframework.jdbc.core.support.JdbcDaoSupport;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
 
 import edu.harvard.i2b2.common.exception.I2B2DAOException;
 import edu.harvard.i2b2.common.exception.I2B2Exception;
-import edu.harvard.i2b2.common.util.db.JDBCUtil;
 import edu.harvard.i2b2.common.util.jaxb.DTOFactory;
-import edu.harvard.i2b2.common.util.xml.XMLUtil;
+import edu.harvard.i2b2.pm.datavo.pm.ApprovalType;
+import edu.harvard.i2b2.pm.datavo.pm.CellDataType;
+import edu.harvard.i2b2.pm.datavo.pm.ConfigureType;
+import edu.harvard.i2b2.pm.datavo.pm.GlobalDataType;
+import edu.harvard.i2b2.pm.datavo.pm.ParamType;
+import edu.harvard.i2b2.pm.datavo.pm.ParamsType;
+import edu.harvard.i2b2.pm.datavo.pm.PasswordType;
+import edu.harvard.i2b2.pm.datavo.pm.ProjectRequestType;
+import edu.harvard.i2b2.pm.datavo.pm.ProjectType;
+import edu.harvard.i2b2.pm.datavo.pm.RoleType;
+import edu.harvard.i2b2.pm.datavo.pm.UserLoginType;
+import edu.harvard.i2b2.pm.datavo.pm.UserType;
 import edu.harvard.i2b2.pm.ejb.DBInfoType;
 //import edu.harvard.i2b2.pm.services.EnvironmentData;
 //import edu.harvard.i2b2.pm.services.HiveParamData;
@@ -62,21 +64,11 @@ import edu.harvard.i2b2.pm.services.UserParamData;
 //import edu.harvard.i2b2.pm.services.RoleData;
 //import edu.harvard.i2b2.pm.services.VariableData;
 import edu.harvard.i2b2.pm.util.PMUtil;
-import edu.harvard.i2b2.pm.datavo.i2b2message.MessageHeaderType;
-import edu.harvard.i2b2.pm.datavo.pm.ApprovalType;
-import edu.harvard.i2b2.pm.datavo.pm.BlobType;
-import edu.harvard.i2b2.pm.datavo.pm.ConfigureType;
-import edu.harvard.i2b2.pm.datavo.pm.ParamType;
-import edu.harvard.i2b2.pm.datavo.pm.ParamsType;
-import edu.harvard.i2b2.pm.datavo.pm.PasswordType;
-import edu.harvard.i2b2.pm.datavo.pm.CellDataType;
-import edu.harvard.i2b2.pm.datavo.pm.GlobalDataType;
-import edu.harvard.i2b2.pm.datavo.pm.ProjectRequestType;
-import edu.harvard.i2b2.pm.datavo.pm.ProjectType;
-import edu.harvard.i2b2.pm.datavo.pm.RoleType;
-import edu.harvard.i2b2.pm.datavo.pm.RolesType;
-import edu.harvard.i2b2.pm.datavo.pm.UserType;
-
+import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
 
 public class PMDbDao extends JdbcDaoSupport {
@@ -84,23 +76,23 @@ public class PMDbDao extends JdbcDaoSupport {
 	private static Log log = LogFactory.getLog(PMDbDao.class);
 
 
-	private SimpleJdbcTemplate jt;
+	private JdbcTemplate jt;
 	private String database = "";
 	public PMDbDao() throws I2B2Exception{
 		DataSource ds = null;
 		Connection conn = null;
 		try {
 			ds = PMUtil.getInstance().getDataSource("java:/PMBootStrapDS");
-	//		database = ds.getConnection().getMetaData().getDatabaseProductName();
+			//		database = ds.getConnection().getMetaData().getDatabaseProductName();
 			log.debug(ds.toString());
 		} catch (I2B2Exception e2) {
 			log.error("bootstrap ds failure: " + e2.getMessage());
 			throw e2;
-//		} catch (SQLException e2) {
-//			log.error("bootstrap ds failure: " + e2.getMessage());
+			//		} catch (SQLException e2) {
+			//			log.error("bootstrap ds failure: " + e2.getMessage());
 			//throw e2;
 		} 
-		
+
 		try {
 			conn  = ds.getConnection(); 
 			database = conn.getMetaData().getDatabaseProductName();
@@ -114,15 +106,15 @@ public class PMDbDao extends JdbcDaoSupport {
 		{
 			conn = null;
 		}
-		
-		this.jt = new SimpleJdbcTemplate(ds);
-	//	ds = null;
+
+		this.jt = new JdbcTemplate(ds);
+		//	ds = null;
 	}
 
 
 
 	@SuppressWarnings("unchecked")
-	public List<DBInfoType> getUser(String userId, String caller) throws I2B2Exception, I2B2DAOException { 
+	public List<UserType> getUser(String userId, String caller) throws I2B2Exception, I2B2DAOException { 
 		return getUser(userId, caller, null, true);
 		/*String sql =  "select * from pm_user_data where user_id = ? and status_cd<>'D'";
 		//		log.info(sql + domainId + projectId + ownerId);
@@ -138,12 +130,12 @@ public class PMDbDao extends JdbcDaoSupport {
 	}
 
 	@SuppressWarnings("unchecked")
-	public List<DBInfoType> getEnvironmentData(String domainId) throws I2B2Exception, I2B2DAOException { 
+	public List<HiveParamData> getEnvironmentData(String domainId) throws I2B2Exception, I2B2DAOException { 
 		String sql =  "select * from pm_hive_params where domain_id = ? and status_cd<>'D'";
 		//		log.info(sql + domainId + projectId + ownerId);
-		List<DBInfoType> queryResult = null;
+		List<HiveParamData> queryResult = null;
 		try {
-			queryResult = jt.query(sql, getEnvironmentParams(), domainId);
+			queryResult = jt.query(sql, new getEnvironmentParams(), domainId);
 		} catch (DataAccessException e) {
 			log.error(e.getMessage());
 			throw new I2B2DAOException("Database error");
@@ -152,20 +144,20 @@ public class PMDbDao extends JdbcDaoSupport {
 	}
 
 	@SuppressWarnings("unchecked")
-	public List<DBInfoType> getEnvironment(String domainId) throws I2B2Exception, I2B2DAOException { 
+	public List<ConfigureType> getEnvironment(String domainId) throws I2B2Exception, I2B2DAOException { 
 		String sql =  "select * from pm_hive_data where active='1' and status_cd <> 'D'";
 
 		if (domainId != null) 
 			sql += " and domain_id = ?";
 
 		//		log.info(sql + domainId + projectId + ownerId);
-		List<DBInfoType> queryResult = null;
+		List<ConfigureType> queryResult = null;
 		try {
 			log.debug("Start query");
 			if (domainId == null)
-				queryResult = jt.query(sql, getEnvironment());
+				queryResult = jt.query(sql, new getEnvironment());
 			else
-				queryResult = jt.query(sql, getEnvironment(), domainId);
+				queryResult = jt.query(sql, new getEnvironment(), domainId);
 			log.debug("Query Size: " + queryResult.size());
 			log.debug("End query");
 		} catch (DataAccessException e) {
@@ -178,7 +170,7 @@ public class PMDbDao extends JdbcDaoSupport {
 
 
 	@SuppressWarnings("unchecked")
-	public List<DBInfoType> getRole(String userId, String project ) throws I2B2Exception, I2B2DAOException { 
+	public List<RoleType> getRole(String userId, String project ) throws I2B2Exception, I2B2DAOException { 
 		String sql = "select  distinct" +
 				"    case  upper(rr.COLUMN_CD)" +
 				"         when '@'   then pur.PROJECT_ID" +
@@ -206,12 +198,12 @@ public class PMDbDao extends JdbcDaoSupport {
 				"    upper(rr.table_cd) =  'PM_PROJECT_USER_ROLES'";
 		//		String sql =  "select * from pm_project_user_roles where user_id=? and project_id=? and status_cd<>'D'";
 		//		log.info(sql + domainId + projectId + ownerId);
-		List<DBInfoType> queryResult = null;
+		List<RoleType> queryResult = null;
 		try {
 			if (project == null)
-				queryResult = jt.query(sql, getRole(), userId);
+				queryResult = jt.query(sql, new getRole(), userId);
 			else
-				queryResult = jt.query(sql, getRole(), userId, project);
+				queryResult = jt.query(sql, new getRole(), userId, project);
 		} catch (DataAccessException e) {
 			log.error(e.getMessage());
 			e.printStackTrace();
@@ -220,7 +212,7 @@ public class PMDbDao extends JdbcDaoSupport {
 		return queryResult;	
 	}
 	@SuppressWarnings("unchecked")
-	public List<DBInfoType> getRole(String userId) throws I2B2Exception, I2B2DAOException { 
+	public List<RoleType> getRole(String userId) throws I2B2Exception, I2B2DAOException { 
 		return getRole(userId, null);
 		/*
 		String sql =  "select * from pm_project_user_roles where user_id=? and status_cd<>'D' order by project_id ";
@@ -238,7 +230,7 @@ public class PMDbDao extends JdbcDaoSupport {
 	}
 
 	@SuppressWarnings("unchecked")
-	public List<DBInfoType> getProject(Object utype, boolean ignoreDeleted) throws I2B2Exception, I2B2DAOException { 
+	public List<ProjectType> getProject(Object utype, boolean ignoreDeleted) throws I2B2Exception, I2B2DAOException { 
 		String sql = "select  distinct" +
 				"    case  upper(rr.COLUMN_CD)" +
 				"         when '@'   then pd.PROJECT_ID" +
@@ -284,9 +276,9 @@ public class PMDbDao extends JdbcDaoSupport {
 
 		//		String sql =  "select * from pm_project_data where project_id=? and status_cd<>'D'";
 		//		log.info(sql + domainId + projectId + ownerId);
-		List<DBInfoType> queryResult = null;
+		List<ProjectType> queryResult = null;
 		try {
-			queryResult = jt.query(sql, getProject(), ((ProjectType) utype).getId()); //, ((ProjectType) utype).getPath());
+			queryResult = jt.query(sql, new getProject(), ((ProjectType) utype).getId()); //, ((ProjectType) utype).getPath());
 		} catch (DataAccessException e) {
 			log.error(e.getMessage());
 			e.printStackTrace();
@@ -295,7 +287,7 @@ public class PMDbDao extends JdbcDaoSupport {
 		return queryResult;	
 	}
 
-	public List<DBInfoType> getUserProject(String user) throws I2B2Exception, I2B2DAOException { 
+	public List<ProjectType> getUserProject(String user) throws I2B2Exception, I2B2DAOException { 
 
 		String sql = "select  distinct" +
 				"    case  upper(rr.COLUMN_CD)" +
@@ -342,9 +334,9 @@ public class PMDbDao extends JdbcDaoSupport {
 
 		//		String sql =  "select distinct pd.* from pm_project_data pd, pm_project_user_roles pur where pd.project_id=pur.project_id and pur.user_id = ?  and pur.status_cd<>'D' and pd.status_cd<>'D'";
 		//		log.info(sql + domainId + projectId + ownerId);
-		List<DBInfoType> queryResult = null;
+		List<ProjectType> queryResult = null;
 		try {
-			queryResult = jt.query(sql, getProject(), user);
+			queryResult = jt.query(sql, new getProject(), user);
 		} catch (DataAccessException e) {
 			log.error(e.getMessage());
 			e.printStackTrace();
@@ -354,12 +346,12 @@ public class PMDbDao extends JdbcDaoSupport {
 	}
 
 	@SuppressWarnings("unchecked")
-	public List<DBInfoType> getProjectUserParams(String projectId, String userId) throws I2B2Exception, I2B2DAOException { 
+	public List<ProjectUserParamData> getProjectUserParams(String projectId, String userId) throws I2B2Exception, I2B2DAOException { 
 		String sql =  "select * from pm_project_user_params where project_id=? and user_id=? and status_cd<>'D'";
 		//		log.info(sql + domainId + projectId + ownerId);
-		List<DBInfoType> queryResult = null;
+		List<ProjectUserParamData> queryResult = null;
 		try {
-			queryResult = jt.query(sql, getProjectUserParams(), projectId, userId);
+			queryResult = jt.query(sql, new getProjectUserParams(), projectId, userId);
 		} catch (DataAccessException e) {
 			log.error(e.getMessage());
 			e.printStackTrace();
@@ -369,12 +361,12 @@ public class PMDbDao extends JdbcDaoSupport {
 	}
 
 	@SuppressWarnings("unchecked")
-	public List<DBInfoType> getProjectParams(String projectId) throws I2B2Exception, I2B2DAOException { 
+	public List<ParamType> getProjectParams(String projectId) throws I2B2Exception, I2B2DAOException { 
 		String sql =  "select * from pm_project_params where project_id=? and status_cd<>'D'";
 		//log.debug(sql  + projectId );
-		List<DBInfoType> queryResult = null;
+		List<ParamType> queryResult = null;
 		try {
-			queryResult = jt.query(sql, getProjectParams(), projectId);
+			queryResult = jt.query(sql, new getProjectParams(), projectId);
 		} catch (DataAccessException e) {
 			log.error(e.getMessage());
 			e.printStackTrace();
@@ -384,9 +376,9 @@ public class PMDbDao extends JdbcDaoSupport {
 	}
 
 	@SuppressWarnings("unchecked")
-	public List<DBInfoType> getCell(String cell, String project, boolean ignoreDeleted) throws I2B2Exception, I2B2DAOException { 
+	public List<CellDataType> getCell(String cell, String project, boolean ignoreDeleted) throws I2B2Exception, I2B2DAOException { 
 		//		log.info(sql + domainId + projectId + ownerId);
-		List<DBInfoType> queryResult = null;
+		List<CellDataType> queryResult = null;
 		log.debug("Searching for cell: " + cell + " within project " + project);
 		try {
 			if (cell.equals("@"))
@@ -394,13 +386,13 @@ public class PMDbDao extends JdbcDaoSupport {
 				String sql =  "select * from pm_cell_data where project_path = ?";
 				if (ignoreDeleted)
 					sql += " and status_cd<>'D'";
-				queryResult = jt.query(sql, getCell(), project);				
+				queryResult = jt.query(sql, new getCell(), project);				
 			} else if ((cell.equals("@") && !project.equals("/")))				
 			{
 				String sql =  "select * from pm_cell_data where project_path = ?";
 				if (ignoreDeleted)
 					sql += " and status_cd<>'D'";
-				queryResult = jt.query(sql, getCell(), project);
+				queryResult = jt.query(sql, new getCell(), project);
 
 			} else
 			{
@@ -408,7 +400,7 @@ public class PMDbDao extends JdbcDaoSupport {
 				if (ignoreDeleted)
 					sql += " and status_cd<>'D'";
 
-				queryResult = jt.query(sql, getCell(), cell, project);
+				queryResult = jt.query(sql, new getCell(), cell, project);
 			}
 		} catch (DataAccessException e) {
 			log.error(e.getMessage());
@@ -419,12 +411,12 @@ public class PMDbDao extends JdbcDaoSupport {
 	}
 
 	@SuppressWarnings("unchecked")
-	public List<DBInfoType> getApproval(ApprovalType approval, boolean ignoreDeleted) throws I2B2Exception, I2B2DAOException { 
+	public List<ApprovalType> getApproval(ApprovalType approval, boolean ignoreDeleted) throws I2B2Exception, I2B2DAOException { 
 		//		log.info(sql + domainId + projectId + ownerId);
 		String sql = "select a.* from pm_approvals a ";
 		String sqlWhere = " where a.object_cd = 'APPROVAL' ";
 		String sqlFrom = "";
-		List<DBInfoType> queryResult = null;
+		List<ApprovalType> queryResult = null;
 		try {
 			ArrayList al = new ArrayList();
 			if (approval.getId() != null)
@@ -497,7 +489,7 @@ public class PMDbDao extends JdbcDaoSupport {
 			}
 			sql += sqlFrom + sqlWhere;
 			log.debug("My sql statement: " + sql);
-			queryResult = jt.query(sql, getApproval(), al.toArray());				
+			queryResult = jt.query(sql, new getApproval(), al.toArray());				
 
 		} catch (DataAccessException e) {
 			log.error(e.getMessage());
@@ -509,12 +501,12 @@ public class PMDbDao extends JdbcDaoSupport {
 
 
 	@SuppressWarnings("unchecked")
-	public List<DBInfoType> getCellParam(String cellId, String project) throws I2B2Exception, I2B2DAOException { 
+	public List<ParamType> getCellParam(String cellId, String project) throws I2B2Exception, I2B2DAOException { 
 		String sql =  "select * from  pm_cell_params where cell_id = ? and  project_path = ? and status_cd<>'D'";
 		//		log.info(sql + domainId + projectId + ownerId);
-		List<DBInfoType> queryResult = null;
+		List<ParamType> queryResult = null;
 		try {
-			queryResult = jt.query(sql, getParam(), cellId, project);
+			queryResult = jt.query(sql, new getParam(), cellId, project);
 		} catch (DataAccessException e) {
 			log.error(e.getMessage());
 			e.printStackTrace();
@@ -532,7 +524,7 @@ public class PMDbDao extends JdbcDaoSupport {
 		{
 			try {
 				String sql =  "select * from pm_project_user_roles where project_id=? and user_id=? and status_cd<>'D' order by project_id";
-				response = jt.query(sql, getRole(), "@", caller);
+				response = jt.query(sql, new getRole(), "@", caller);
 				//response = getRole(caller, project);
 			} catch (Exception e1) {
 				throw new I2B2DAOException ("Database error in getting role data for validateRole");
@@ -569,22 +561,26 @@ public class PMDbDao extends JdbcDaoSupport {
 	}
 
 	// All user Process
-	public List<DBInfoType> getUser(String user, String caller,String password, boolean ignoreDeleted) throws I2B2Exception, I2B2DAOException { 
+	public List<UserType> getUser(String user, String caller,String password, boolean ignoreDeleted) throws I2B2Exception, I2B2DAOException { 
 
 		String sql = null;
-		List<DBInfoType> queryResult = null;
+		List<UserType> queryResult = null;
 
 		if (caller == null)
 		{
-			sql =  "select * from pm_user_data where user_id = ?  "+  (password!=null?"    and password = ? ":"");
+			//sql =  "select * from pm_user_data where user_id = ?  "+  (password!=null?"    and password = ? ":"");
+			
+			sql =  "select distinct a.*, o.user_role_cd from pm_user_data a  left join pm_project_user_roles o"
+					+ " on a.user_id = o.user_id and o.status_cd <> 'D' and o.user_role_cd =  'ADMIN' where  a.user_id = ? " +  (password != null ? " and password = ? ":"");
+			
 			if (ignoreDeleted)
-				sql += " and status_cd<>'D'";
+				sql += " and a.status_cd<>'D'";
 
 			try {
 				if (password == null) 
-					queryResult = jt.query(sql, getUser(true), user);
+					queryResult = jt.query(sql,  GetUser(true), user);
 				else 
-					queryResult = jt.query(sql, getUser(false), user, password);
+					queryResult = jt.query(sql,  GetUser(false), user, password);
 			} catch (DataAccessException e) {
 				log.error(e.getMessage());
 				throw new I2B2DAOException("Database error in getting userdata with password");
@@ -626,9 +622,9 @@ public class PMDbDao extends JdbcDaoSupport {
 
 			try {
 				if (password == null) 
-					queryResult = jt.query(sql, getUser(true), user);
+					queryResult = jt.query(sql, GetUser(true), user);
 				else 
-					queryResult = jt.query(sql, getUser(false), user, password);
+					queryResult = jt.query(sql, GetUser(false), user, password);
 			} catch (DataAccessException e) {
 				log.error(e.getMessage());
 				throw new I2B2DAOException("Database error in getting userdata with password");
@@ -640,28 +636,31 @@ public class PMDbDao extends JdbcDaoSupport {
 		return queryResult;	
 	}
 
-	public List<DBInfoType> getAllProjectRequest(String project, String caller) throws I2B2Exception, I2B2DAOException { 
+	public List<ProjectRequestType> getAllProjectRequest(String project, String caller) throws I2B2Exception, I2B2DAOException { 
 		String sql = null;
-		List<DBInfoType> queryResult = null;
+		List<ProjectRequestType> queryResult = null;
 
 		if ((validateRole(caller, "admin", null)) || (validateRole(caller, "admin", null)))
 		{
 			sql =  "select * from pm_project_request where status_cd<>'D'";
-			queryResult = jt.query(sql, getProjectRequest());
+			queryResult = jt.query(sql, new getProjectRequest());
 		}
 
 		return queryResult;	
 	}
 
 
-	public List<DBInfoType> getAllUser(String project, String caller) throws I2B2Exception, I2B2DAOException { 
+	public List<UserType> getAllUser(String project, String caller) throws I2B2Exception, I2B2DAOException { 
 		String sql = null;
-		List<DBInfoType> queryResult = null;
+		List<UserType> queryResult = null;
 
 		if ((validateRole(caller, "admin", null)) || (validateRole(caller, "admin", null)))
 		{
-			sql =  "select * from pm_user_data where status_cd<>'D'";
-			queryResult = jt.query(sql, getUser(false));
+			//sql =  "select * from pm_user_data where status_cd<>'D'";
+			sql =  "select distinct a.*, o.user_role_cd from pm_user_data a  left join pm_project_user_roles o"
+					+ " on a.user_id = o.user_id and o.status_cd <> 'D' and o.user_role_cd =  'ADMIN' where  a.status_cd<>'D' order by a.full_name";
+
+			queryResult = jt.query(sql,  GetUser(false));
 		}
 
 		return queryResult;	
@@ -798,13 +797,13 @@ public class PMDbDao extends JdbcDaoSupport {
 
 
 
-	public List<DBInfoType> setProjectRequest(final ProjectRequestType groupdata,String project, String caller) throws I2B2DAOException, I2B2Exception{
+	public List<ProjectRequestType> setProjectRequest(final ProjectRequestType groupdata,String project, String caller) throws I2B2DAOException, I2B2Exception{
 		int numRowsAdded = 0;
 
-		List<DBInfoType> queryResult = null;
+		List<ProjectRequestType> queryResult = null;
 		try {
 			String clob = null;
-			
+
 			if (groupdata.getRequestXml() != null)
 			{
 				clob = groupdata.getRequestXml();
@@ -821,7 +820,7 @@ public class PMDbDao extends JdbcDaoSupport {
 					//					JDBCUtil.getClobString(clob));
 					//		rData.setRequestXml(blobType);
 				}
-				*/
+				 */
 			}
 			String addSql = "insert into pm_project_request " + 
 					"(title, request_xml, project_id, change_date, entry_date, submit_char, changeby_char, status_cd) values (?,?,?,?,?,?,?,?)";
@@ -839,7 +838,7 @@ public class PMDbDao extends JdbcDaoSupport {
 			{
 				addSql = "select  *  from pm_project_request where id =  ( select max(id) from pm_project_request)";
 
-				queryResult = jt.query(addSql, getProjectRequest());
+				queryResult = jt.query(addSql, new getProjectRequest());
 			}
 
 		} catch (Exception e) {
@@ -854,21 +853,84 @@ public class PMDbDao extends JdbcDaoSupport {
 
 
 
-	public int setPassword(final String password, String caller) throws I2B2DAOException, I2B2Exception{
+	public int setPassword(String password, String caller) throws I2B2DAOException, I2B2Exception{
 		int numRowsAdded = 0;
-
+		String hash = PMUtil.getInstance().getHashedPassword(password);
 		try {
+
+
+			String sql = "select * from pm_global_params where status_cd = 'A' and (param_name_cd ='PM_EXPIRED_PASSWORD' OR param_name_cd='PM_COMPLEX_PASSWORD')";
+
+			int expiredPassword = -1;
+
+			try {
+				List<ParamType> queryResult  = jt.query(sql, new getParam());
+				Iterator it = queryResult.iterator();
+				while (it.hasNext())
+				{
+					//\n\n(1) a digit must occur at least once\n(2) a lower case letter must occur at least once\n(3) an upper case letter must occur at least once\n(4) a special character must occur at least once )(;:}{,.!@#$%^&+=\n(5) no whitespace allowed in the entire string\n(6) at least 8 characters");
+
+					ParamType user = (ParamType)it.next();
+					if (user.getName().equals("PM_COMPLEX_PASSWORD") )
+					{
+
+						if (!PMUtil.getInstance().passwordValidation(password, user.getValue()))
+							throw new Exception("Password Validation Failed");
+					} else if (user.getName().equals("PM_EXPIRED_PASSWORD")) {
+
+						expiredPassword = Integer.parseInt(user.getValue());
+
+						sql = "delete from pm_user_params where PARAM_NAME_CD = 'PM_EXPIRED_PASSWORD' and user_id = ?";
+
+						jt.update(sql,caller);
+
+						UserType uType = new UserType();
+						uType.setUserName(caller);
+						ParamType param = new ParamType();
+						param.setDatatype("T");
+						param.setName("PM_EXPIRED_PASSWORD");
+						//Date datePasswordSet = Date.parse(user.getValue());
+						SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+						Calendar expire  = Calendar.getInstance();
+						//expire.setTime(sdf.parse(user.getValue()));
+						expire.add(Calendar.DATE, Integer.parseInt(user.getValue())); 
+						param.setValue(sdf.format(expire.getTime()));
+
+						uType.getParam().add(param);
+
+						setParam( uType, null, null,  caller);
+					}
+				}
+
+
+				//sql =  "select * from pm_user_data where user_id = ?  and password = ?";
+				sql =  "select distinct a.*, o.user_role_cd from pm_user_data a  left join pm_project_user_roles o"
+						+ " on a.user_id = o.user_id and o.status_cd <> 'D' and o.user_role_cd =  'ADMIN' where  a.user_id = ? and password = ?";
+		
+				List<UserType> queryResult2 = jt.query(sql,  GetUser(true), caller, hash);
+
+				it = queryResult2.iterator();
+				if (it.hasNext())
+					throw new Exception("New password is same as current password.");
+
+			} catch (Exception e)
+			{
+				throw new I2B2DAOException(e.getMessage(), e);
+
+			}
+
 			String addSql = "update pm_user_data " + 
 					"set password = ?, change_date = ?, changeby_char = ? where user_id = ?";
 
 			numRowsAdded = jt.update(addSql, 
-					password,
+					hash,
 					Calendar.getInstance().getTime(),
 					caller,
 					caller);
 
 			if (numRowsAdded ==0)
 				throw new I2B2DAOException("User not updated, does it exist?");
+
 
 		} catch (DataAccessException e) {
 			log.error("Dao deleteuser failed");
@@ -882,6 +944,8 @@ public class PMDbDao extends JdbcDaoSupport {
 		return numRowsAdded;
 
 	}
+
+
 
 
 	// All Cell Process
@@ -901,46 +965,104 @@ public class PMDbDao extends JdbcDaoSupport {
 	 */
 
 
-	public List<DBInfoType> getAllApproval(String project, String caller) throws I2B2Exception, I2B2DAOException { 
+	public List<ApprovalType> getAllApproval(String project, String caller) throws I2B2Exception, I2B2DAOException { 
 		String sql = null;
-		List<DBInfoType> queryResult = null;
+		List<ApprovalType> queryResult = null;
 
 		sql =  "select * from pm_approvals where status_cd<>'D'";
-		queryResult = jt.query(sql, getApproval());
+		queryResult = jt.query(sql, new getApproval());
 
 		return queryResult;	
 	}
 
-	public List<DBInfoType> getAllCell(String project, String caller) throws I2B2Exception, I2B2DAOException { 
+	public List<CellDataType> getAllCell(String project, String caller) throws I2B2Exception, I2B2DAOException { 
 		String sql = null;
-		List<DBInfoType> queryResult = null;
+		List<CellDataType> queryResult = null;
 
 		sql =  "select * from pm_cell_data where status_cd<>'D'";
-		queryResult = jt.query(sql, getCell());
+		queryResult = jt.query(sql, new getCell());
 
 		return queryResult;	
 	}
 
-	public List<DBInfoType>  getSession(String userId, String sessionID) throws I2B2Exception, I2B2DAOException { 
+	public List<SessionData>  getSession(String userId, String sessionID) throws I2B2Exception, I2B2DAOException { 
 		String sql =  "select * from pm_user_session where user_id = ? and session_id = ?";
-		List<DBInfoType> queryResult = null;
+		List<SessionData> queryResult = null;
 		log.debug("Searching for " + userId + " with session id of " + sessionID);
-		queryResult = jt.query(sql, getSession(), userId, sessionID);
+		queryResult = jt.query(sql, new getSession(), userId, sessionID);
 		return queryResult;	
+	}
+
+	public boolean verifyExpiredPassword(String userId)
+	{
+		String sql = null;
+		sql = "select * from pm_global_params where status_cd = 'A' and param_name_cd ='PM_EXPIRED_PASSWORD'";
+
+		int expiredPassword = -1;
+
+		try {
+			List<ParamType> queryResult  = jt.query(sql, new getParam());
+			Iterator it = queryResult.iterator();
+			while (it.hasNext())
+			{
+				ParamType user = (ParamType)it.next();
+				expiredPassword = Integer.parseInt(user.getValue());
+			}
+		} catch (Exception e)
+		{
+			e.printStackTrace();
+
+		}
+
+		// Either dont want to use expired password or not set
+		if (expiredPassword < 0)
+			return false;
+
+		sql = "select * from pm_user_params where PARAM_NAME_CD = 'PM_EXPIRED_PASSWORD' and user_id = ?";
+
+		try {
+			List<ParamType> queryResult  = jt.query(sql, new getParam(), userId);
+			Iterator it = queryResult.iterator();
+			while (it.hasNext())
+			{
+				Date currentDate = new Date();
+				Calendar now = Calendar.getInstance();
+				now.setTime(currentDate);
+				//c.add(Calendar.DATE, expiredPassword);
+
+				ParamType user = (ParamType)it.next();
+				//Date datePasswordSet = Date.parse(user.getValue());
+				SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+				Calendar expire  = Calendar.getInstance();
+				expire.setTime(sdf.parse(user.getValue()));
+				if (expire.before(now))
+					return true;
+				else
+					return false;
+			}
+		} catch (Exception e)
+		{
+			e.printStackTrace();
+
+		}
+
+		// If we have gotten here than the variable PM_EXPIRED_PASSWORD is set to greater than -1 and the user does not have a expired entry, so considered expired
+		return true;
+
 	}
 
 	public boolean verifyNotLockedOut(String userId)
 	{
-		
-		
+
+
 		String sql = null;
 		//get results count max
 		sql = "select * from pm_global_params where status_cd = 'A' and param_name_cd ='PM_LOCKED_MAX_COUNT'";
 
 		int resultmax = 10;
-		
+
 		try {
-			List<DBInfoType> queryResult  = jt.query(sql, getParam());
+			List<ParamType> queryResult  = jt.query(sql, new getParam());
 			Iterator it = queryResult.iterator();
 			while (it.hasNext())
 			{
@@ -950,15 +1072,15 @@ public class PMDbDao extends JdbcDaoSupport {
 		} catch (Exception e)
 		{
 			e.printStackTrace();
-			
+
 		}
-		
+
 		sql = "select * from pm_global_params where status_cd = 'A' and param_name_cd ='PM_LOCKED_WAIT_TIME'";
 
 		int waittime = 2;
-		
+
 		try {
-			List<DBInfoType> queryResult  = jt.query(sql, getParam());
+			List<ParamType> queryResult  = jt.query(sql, new getParam());
 			Iterator it = queryResult.iterator();
 			while (it.hasNext())
 			{
@@ -968,14 +1090,14 @@ public class PMDbDao extends JdbcDaoSupport {
 		} catch (Exception e)
 		{
 			e.printStackTrace();
-			
+
 		}
 
-		
+
 		if (database.equalsIgnoreCase("oracle"))
 			sql =  "select count(*) as badlogin from pm_user_login where user_id = ? and " +
-				" attempt_cd = 'BADPASSWORD' and " +
-				"(entry_date + interval '" + waittime + "' minute)  >= CURRENT_TIMESTAMP ";
+					" attempt_cd = 'BADPASSWORD' and " +
+					"(entry_date + interval '" + waittime + "' minute)  >= CURRENT_TIMESTAMP ";
 		else if (database.equalsIgnoreCase("Microsoft sql server"))
 			sql =  "select count(*) as badlogin from pm_user_login where user_id = ? and " +
 					" attempt_cd = 'BADPASSWORD' and " +
@@ -984,44 +1106,53 @@ public class PMDbDao extends JdbcDaoSupport {
 			sql =  "select count(*) as badlogin from pm_user_login where user_id = ? and " +
 					" attempt_cd = 'BADPASSWORD' and " +
 					"(entry_date + cast('" + waittime + " minutes' as interval))  >= now() ";
-		
-		int results = jt.queryForInt(sql, userId);
+
+		int results = jt.queryForObject(sql, Integer.class, userId);
 
 		//int results = 0;
-		
+
 		if (results >= resultmax)
 			return true;
 		else 
 			return false;
 	}
-	
+
 	public int setLoginAttempt(String userId, String attemptCd) {
-		String addSql = "insert into pm_user_login " + 
-				"(user_id, attempt_cd, changeby_char, entry_date, status_cd) values (?,?,?,?,'A')";
+
+		String addSql = "";
+
+		if (database.equalsIgnoreCase("oracle"))
+			addSql = "insert into pm_user_login " + 
+					"(user_id, attempt_cd, changeby_char, entry_date, status_cd) values (?,?,?,systimestamp,'A')";
+		else if (database.equalsIgnoreCase("Microsoft sql server"))
+			addSql = "insert into pm_user_login " + 
+					"(user_id, attempt_cd, changeby_char, entry_date, status_cd) values (?,?,?,getdate(),'A')";
+		else if (database.equalsIgnoreCase("postgresql"))
+			addSql = "insert into pm_user_login " + 
+					"(user_id, attempt_cd, changeby_char, entry_date, status_cd) values (?,?,?,now(),'A')";
 
 		int numRowsAdded =
 				jt.update(addSql, 
-				userId,
-				attemptCd,
-				userId,
-				Calendar.getInstance().getTime());	
+						userId,
+						attemptCd,
+						userId);	
 
 		return numRowsAdded;		
 	}
 
 	public int setSession(String userId, String sessionId, int timeout)
 	{
-		
+
 		String addSql = "";
 
 		if (database.equalsIgnoreCase("oracle"))
-			 addSql = "insert into pm_user_session " + 
-					"(user_id, session_id, changeby_char, entry_date, expired_date) values (?,?,?, systimestamp, systimestamp+numtodsinterval(" + (timeout * 1000) + ",'SECOND'))";
+			addSql = "insert into pm_user_session " + 
+					"(user_id, session_id, changeby_char, entry_date, expired_date) values (?,?,?, systimestamp, systimestamp+numtodsinterval(" + (timeout / 1000) + ",'SECOND'))";
 		else if (database.equalsIgnoreCase("Microsoft sql server"))
-			 addSql = "insert into pm_user_session " + 
+			addSql = "insert into pm_user_session " + 
 					"(user_id, session_id, changeby_char, entry_date, expired_date) values (?,?,?, getdate(), DATEADD(ms," + timeout + ",getdate()))";
 		else if (database.equalsIgnoreCase("postgresql"))
-			 addSql = "insert into pm_user_session " + 
+			addSql = "insert into pm_user_session " + 
 					"(user_id, session_id, changeby_char, entry_date, expired_date) values (?,?,?,now(),  now() + interval '" + timeout + " millisecond')";
 
 		Calendar now = Calendar.getInstance();
@@ -1030,8 +1161,8 @@ public class PMDbDao extends JdbcDaoSupport {
 				userId,
 				sessionId,
 				userId);
-				//Calendar.getInstance().getTime(),
-				//now.getTime());	
+		//Calendar.getInstance().getTime(),
+		//now.getTime());	
 
 		return numRowsAdded;
 	}
@@ -1250,14 +1381,14 @@ public class PMDbDao extends JdbcDaoSupport {
 	}
 
 
-	public List<DBInfoType> getAllProject(String project, String caller) throws I2B2Exception, I2B2DAOException { 
+	public List<ProjectType> getAllProject(String project, String caller) throws I2B2Exception, I2B2DAOException { 
 		String sql = null;
-		List<DBInfoType> queryResult = null;
+		List<ProjectType> queryResult = null;
 
 		if (validateRole(caller, "admin", null))
 		{
 			sql =  "select * from pm_project_data where status_cd<>'D'";
-			queryResult = jt.query(sql, getProject());
+			queryResult = jt.query(sql, new getProject());
 		}
 
 		return queryResult;	
@@ -1312,9 +1443,9 @@ public class PMDbDao extends JdbcDaoSupport {
 
 	}
 
-	public List<DBInfoType> getAllParam(Object utype, String project, String caller) throws I2B2Exception, I2B2DAOException { 
+	public List<Object> getAllParam(Object utype, String project, String caller) throws I2B2Exception, I2B2DAOException { 
 		String sql = null;
-		List<DBInfoType> queryResult = null;
+		List queryResult = null;
 
 		//		if (validateRole(caller, "admin", null))
 		//	{
@@ -1323,7 +1454,7 @@ public class PMDbDao extends JdbcDaoSupport {
 			if (((ProjectType) utype).getUserName() == null)
 			{
 				sql =  "select * from pm_project_params where status_cd<>'D' and project_id = ? order by project_id";
-				queryResult = jt.query(sql, getParam(), ((ProjectType) utype).getId());
+				queryResult = jt.query(sql, new getParam(), ((ProjectType) utype).getId());
 
 			} else 
 			{
@@ -1363,7 +1494,7 @@ public class PMDbDao extends JdbcDaoSupport {
 					}
 				}
 				log.debug("My SQL: " + sql);
-				queryResult = jt.query(sql, getParam(), al.toArray());
+				queryResult = jt.query(sql, new getParam(), al.toArray());
 
 				/*
 				if (((ProjectType) utype).getUserName() != null && !((ProjectType) utype).getUserName().equals("") )
@@ -1407,23 +1538,23 @@ public class PMDbDao extends JdbcDaoSupport {
 							sql +=  " and to_char(value)=?";
 						else
 							sql +=  " and value=?";
-							
+
 						al.add((((UserType) utype).getParam().get(i).getValue()));
 					}
 
 				}
 			}
-			queryResult = jt.query(sql, getUserParams(), al.toArray());
+			queryResult = jt.query(sql, new getUserParams(), al.toArray());
 		}
 		else if (utype instanceof ApprovalType)
 		{
 			if (((ApprovalType) utype).getId() == null)
 			{
 				sql =  "select * from pm_approvals where  status_cd<>'D' order by id";
-				queryResult = jt.query(sql, getApproval());
+				queryResult = jt.query(sql, new getApproval());
 			} else {
 				sql =  "select * from pm_approvals_params where id=? and status_cd<>'D'";
-				queryResult = jt.query(sql, getParam(), ((ApprovalType) utype).getId());
+				queryResult = jt.query(sql, new getParam(), ((ApprovalType) utype).getId());
 			}
 		}
 		else if (utype instanceof ConfigureType)
@@ -1431,10 +1562,10 @@ public class PMDbDao extends JdbcDaoSupport {
 			if (((ConfigureType) utype).getDomainId() == null)
 			{
 				sql =  "select * from pm_hive_data where status_cd<>'D' order by domain_id";
-				queryResult = jt.query(sql, getEnvironment());
+				queryResult = jt.query(sql, new getEnvironment());
 			} else {
 				sql =  "select * from pm_hive_params where domain_id=? and status_cd<>'D'";
-				queryResult = jt.query(sql, getParam(), ((ConfigureType) utype).getDomainId());
+				queryResult = jt.query(sql, new getParam(), ((ConfigureType) utype).getDomainId());
 			}
 		}
 		else if (utype instanceof GlobalDataType)
@@ -1442,12 +1573,12 @@ public class PMDbDao extends JdbcDaoSupport {
 			if (((GlobalDataType) utype).getProjectPath() == null)
 			{
 				sql =  "select * from pm_global_params where  status_cd<>'D'";
-				queryResult = jt.query(sql, getParam());
+				queryResult = jt.query(sql, new getParam());
 			}
 			else
 			{
 				sql =  "select * from pm_global_params where project_path = ? and status_cd<>'D'";
-				queryResult = jt.query(sql, getParam(), ((GlobalDataType) utype).getProjectPath());
+				queryResult = jt.query(sql, new getParam(), ((GlobalDataType) utype).getProjectPath());
 
 			}
 		}
@@ -1456,11 +1587,11 @@ public class PMDbDao extends JdbcDaoSupport {
 			if (((CellDataType) utype).getProjectPath() == null)
 			{
 				sql =  "select * from pm_cell_params where status_cd<>'D' order by project_path";
-				queryResult = jt.query(sql, getParam());
+				queryResult = jt.query(sql, new getParam());
 
 			} else {
 				sql =  "select * from pm_cell_params where project_path=? and cell_id=?  and status_cd<>'D'";
-				queryResult = jt.query(sql, getParam(), ((CellDataType) utype).getProjectPath(), ((CellDataType) utype).getId());
+				queryResult = jt.query(sql, new getParam(), ((CellDataType) utype).getProjectPath(), ((CellDataType) utype).getId());
 			}
 		}
 		else if (utype instanceof RoleType)
@@ -1473,17 +1604,17 @@ public class PMDbDao extends JdbcDaoSupport {
 			if (((RoleType) utype).getProjectId() == null)
 			{
 				sql =  "select * from pm_project_user_roles where status_cd<>'D' " + addsql + " order by project_id";
-				queryResult = jt.query(sql, getRole());
+				queryResult = jt.query(sql, new getRole());
 
 			} else if (((RoleType) utype).getUserName() != null)
 			{
 				sql =  "select * from pm_project_user_roles where project_id=? and user_id=? and status_cd<>'D' " + addsql + " order by project_id";
-				queryResult = jt.query(sql, getRole(), ((RoleType) utype).getProjectId(), ((RoleType) utype).getUserName());
+				queryResult = jt.query(sql, new getRole(), ((RoleType) utype).getProjectId(), ((RoleType) utype).getUserName());
 
 			}  
 			else {
 				sql =  "select * from pm_project_user_roles where project_id=? and status_cd<>'D' " + addsql;
-				queryResult = jt.query(sql, getRole(), ((RoleType) utype).getProjectId());
+				queryResult = jt.query(sql, new getRole(), ((RoleType) utype).getProjectId());
 			}
 			//	}
 
@@ -1492,9 +1623,9 @@ public class PMDbDao extends JdbcDaoSupport {
 	}
 
 
-	public List<DBInfoType> getParam(Object utype, boolean showStatus) throws I2B2Exception, I2B2DAOException { 
+	public List<Object> getParam(Object utype, boolean showStatus) throws I2B2Exception, I2B2DAOException { 
 		//		log.info(sql + domainId + projectId + ownerId);
-		List<DBInfoType> queryResult = null;
+		List  queryResult = null;
 		try {
 			if (utype instanceof ProjectType)
 			{
@@ -1503,14 +1634,14 @@ public class PMDbDao extends JdbcDaoSupport {
 					String sql =  "select * from pm_project_user_params where id=?  " + 	(showStatus == false? "" :" and status_cd<>'D'");
 
 					if (((ProjectType) utype).getParam().get(0).getId() != null)
-						queryResult = jt.query(sql, getParam(), 						
+						queryResult = jt.query(sql, new getParam(), 						
 								((ProjectType) utype).getParam().get(0).getId());
 
 				} else {
 					String sql =  "select * from pm_project_params where id=?  " + 	(showStatus == false? "" :" and status_cd<>'D'");
 
 					if (((ProjectType) utype).getParam().get(0).getId() != null)
-						queryResult = jt.query(sql, getParam(), 						
+						queryResult = jt.query(sql, new getParam(), 						
 								((ProjectType) utype).getParam().get(0).getId());
 				}
 			}
@@ -1519,7 +1650,7 @@ public class PMDbDao extends JdbcDaoSupport {
 				String sql =  "select * from pm_global_params where id=? " + 	(showStatus == false? "" :" and status_cd<>'D'");
 
 				if (((GlobalDataType) utype).getParam().get(0).getId() != null)
-					queryResult = jt.query(sql, getGlobal(), 						
+					queryResult = jt.query(sql, new getGlobal(), 						
 							((GlobalDataType) utype).getParam().get(0).getId());
 			}
 			else if (utype instanceof ApprovalType)
@@ -1527,7 +1658,7 @@ public class PMDbDao extends JdbcDaoSupport {
 				String sql =  "select * from pm_approval_params where id=? " + 	(showStatus == false? "" :" and status_cd<>'D'");
 
 				if (((ApprovalType) utype).getParam().get(0).getId() != null)
-					queryResult = jt.query(sql, getParam(), 						
+					queryResult = jt.query(sql, new getParam(), 						
 							((UserType) utype).getParam().get(0).getId());
 			}
 			else if (utype instanceof UserType)
@@ -1535,7 +1666,7 @@ public class PMDbDao extends JdbcDaoSupport {
 				String sql =  "select * from pm_user_params where id=? " + 	(showStatus == false? "" :" and status_cd<>'D'");
 
 				if (((UserType) utype).getParam().get(0).getId() != null)
-					queryResult = jt.query(sql, getParam(), 						
+					queryResult = jt.query(sql, new getParam(), 						
 							((UserType) utype).getParam().get(0).getId());
 			}
 			else if (utype instanceof CellDataType)
@@ -1543,14 +1674,14 @@ public class PMDbDao extends JdbcDaoSupport {
 				String sql =  "select * from pm_cell_params where id=? " + 	(showStatus == false? "" :" and status_cd<>'D'");
 
 				if (((CellDataType) utype).getParam().get(0).getId() != null)
-					queryResult = jt.query(sql, getParam(), 						
+					queryResult = jt.query(sql, new getParam(), 						
 							((CellDataType) utype).getParam().get(0).getId());
 			}
 			else if (utype instanceof RoleType)
 			{
 				String sql =  "select * from pm_project_user_roles where project_id=? and user_id=? " + 	(showStatus == false? "" :" and status_cd<>'D'");
 
-				queryResult = jt.query(sql, getRole(), 						
+				queryResult = jt.query(sql, new getRole(), 						
 						((RoleType) utype).getProjectId(),
 						((RoleType) utype).getUserName());
 
@@ -1562,14 +1693,14 @@ public class PMDbDao extends JdbcDaoSupport {
 					String sql =  "select * from pm_hive_params where id=? " + 	(showStatus == false? "" :" and status_cd<>'D'");
 
 					if (((ConfigureType) utype).getParam().get(0).getId() != null)
-						queryResult = jt.query(sql, getParam(), 						
+						queryResult = jt.query(sql, new getParam(), 						
 								((ConfigureType) utype).getParam().get(0).getId());
 
 				} else {
 					String sql =  "select * from pm_hive_data where active = '1' and domain_id=? " + 	(showStatus == false? "" :" and status_cd<>'D'");
 
 					if (((ConfigureType) utype).getParam().get(0).getId() != null)
-						queryResult = jt.query(sql, getEnvironment(), 						
+						queryResult = jt.query(sql, new getEnvironment(), 						
 								((ConfigureType) utype).getDomainId());
 				}
 			}
@@ -1617,9 +1748,9 @@ public class PMDbDao extends JdbcDaoSupport {
 						Calendar.getInstance().getTime(),
 						caller,
 						((UserType) utype).getParam().get(0).getId());
-                if (numRowsAdded == 0)
-                    throw new I2B2DAOException("Record does not exist or access denied.");
-				
+				if (numRowsAdded == 0)
+					throw new I2B2DAOException("Record does not exist or access denied.");
+
 			}
 		}  		
 		else if ((utype instanceof ProjectType) && (((ProjectType) utype).getUserName() != null) && (((ProjectType) utype).getUserName().equals(caller) ))
@@ -1650,8 +1781,8 @@ public class PMDbDao extends JdbcDaoSupport {
 						Calendar.getInstance().getTime(),			
 						caller,
 						((ProjectType) utype).getParam().get(0).getId());
-                if (numRowsAdded == 0)
-                    throw new I2B2DAOException("Record does not exist or access denied.");
+				if (numRowsAdded == 0)
+					throw new I2B2DAOException("Record does not exist or access denied.");
 			}
 
 		}	else if (validateRole(caller, "admin", null) || validateRole(caller, "manager", project))
@@ -2284,8 +2415,8 @@ public class PMDbDao extends JdbcDaoSupport {
 					caller,
 					caller,
 					((UserType) utype).getParam().get(0).getId());
-            if (numRowsAdded == 0)
-                throw new I2B2DAOException("Record does not exist or access denied.");
+			if (numRowsAdded == 0)
+				throw new I2B2DAOException("Record does not exist or access denied.");
 		} else if ((utype instanceof ProjectType) && (((ProjectType) utype).getUserName() != null) && (((ProjectType) utype).getUserName().equals(caller) ))
 		{
 			String addSql = "update pm_project_user_params " + 
@@ -2296,8 +2427,8 @@ public class PMDbDao extends JdbcDaoSupport {
 					caller,
 					caller,
 					((ProjectType) utype).getParam().get(0).getId());
-            if (numRowsAdded == 0)
-                throw new I2B2DAOException("Record does not exist or access denied.");
+			if (numRowsAdded == 0)
+				throw new I2B2DAOException("Record does not exist or access denied.");
 
 		} 
 		else 
@@ -2359,136 +2490,116 @@ public class PMDbDao extends JdbcDaoSupport {
 
 	}
 
+	public List<UserLoginType> getUserLogin(UserLoginType value, String caller) throws I2B2Exception, I2B2DAOException { 
+		String sql = null;
+		List<UserLoginType> queryResult = null;
 
-	private ParameterizedRowMapper getEnvironmentParams() {
-		ParameterizedRowMapper<HiveParamData> map = new ParameterizedRowMapper<HiveParamData>() {
-			public HiveParamData mapRow(ResultSet rs, int rowNum) throws SQLException {
-				HiveParamData eData = new HiveParamData();
-				eData.setDomain(rs.getString("domain_id"));
-				eData.setName(rs.getString("param_name_cd"));
-				eData.setValue(rs.getString("value"));
+		sql =  "select * from pm_user_login where status_cd<>'D' ";
+		if (value.getEntryDate() != null)
+		{
+			sql += " and entry_date > ?";
+			queryResult = jt.query(sql, new getUserLoginAttempt(), value.getEntryDate());
 
-				return eData;
-			} 
-		};
-		return map;
+		} else {
+
+			queryResult = jt.query(sql, new getUserLoginAttempt());
+		}
+		return queryResult;	
 	}
 
-	private ParameterizedRowMapper getProject() {
-		ParameterizedRowMapper<ProjectType> map = new ParameterizedRowMapper<ProjectType>() {
-			public ProjectType mapRow(ResultSet rs, int rowNum) throws SQLException {
-				ProjectType rData = new ProjectType();
-				DTOFactory factory = new DTOFactory();
-				rData.setKey(rs.getString("project_key"));
-				rData.setName(rs.getString("project_name"));
-				rData.setPath(rs.getString("project_path"));
-				rData.setDescription(rs.getString("project_description"));
-				rData.setId(rs.getString("project_id"));
-				rData.setWiki(rs.getString("project_wiki"));
-				return rData;
-			} 
-		};
-		return map;
+	private getUser GetUser(boolean includePassword)
+	
+	{
+		getUser user = new getUser();
+		user.setIncludePassword(includePassword);
+		
+		
+		return user;
 	}
+}
 
-	private ParameterizedRowMapper getCell() {
-		ParameterizedRowMapper<CellDataType> map = new ParameterizedRowMapper<CellDataType>() {
-			public CellDataType mapRow(ResultSet rs, int rowNum) throws SQLException {
-				CellDataType rData = new CellDataType();
-				DTOFactory factory = new DTOFactory();
-				rData.setId(rs.getString("cell_id"));
-				rData.setName(rs.getString("name"));
-				rData.setProjectPath(rs.getString("project_path"));
-				rData.setCanOverride(rs.getBoolean("can_override"));
-				rData.setMethod(rs.getString("method_cd"));
-				rData.setUrl(rs.getString("url"));
-				return rData;
-			} 
-		};
-		return map;
+
+
+class getEnvironmentParams implements RowMapper<HiveParamData> {
+	@Override
+	public HiveParamData mapRow(ResultSet rs, int rowNum) throws SQLException {
+		HiveParamData eData = new HiveParamData();
+
+
+		eData.setDomain(rs.getString("domain_id"));
+		eData.setName(rs.getString("param_name_cd"));
+		eData.setValue(rs.getString("value"));
+
+		return eData;
 	}
+}
+/*
+	private RowMapper getEnvironmentParams() {
+		public HiveParamData mapRow(ResultSet rs, int rowNum) throws SQLException {
+			RootType eData = new RootType();
 
-	private ParameterizedRowMapper getProjectRequest() {
-		ParameterizedRowMapper<ProjectRequestType> map = new ParameterizedRowMapper<ProjectRequestType>() {
-			public ProjectRequestType mapRow(ResultSet rs, int rowNum) throws SQLException {
-				ProjectRequestType rData = new ProjectRequestType();
-				DTOFactory factory = new DTOFactory();
-				rData.setId(Integer.toString(rs.getInt("id")));
-				rData.setProjectId(rs.getString("project_id"));
-				rData.setTitle(rs.getString("title"));
-				rData.setSubmitChar(rs.getString("submit_char"));
-				Date date = rs.getDate("entry_date");
+			eData.setDomain(rs.getString("domain_id"));
+			eData.setName(rs.getString("param_name_cd"));
+			eData.setValue(rs.getString("value"));
 
-				if (date == null)
-					rData.setEntryDate(null);
-				else 
-					rData.setEntryDate(long2Gregorian(date.getTime())); 
-
-				rData.setRequestXml(rs.getString("request_xml"));
-				/*
-				Clob clob = rs.getClob("request_xml");
-
-				if (clob != null) {
-					try {
-						BlobType blobType = new BlobType();
-						blobType.getContent().add(
-								JDBCUtil.getClobString(clob));
-						rData.setRequestXml(blobType);
-					} catch (IOException ioe)
-					{
-						log.debug(ioe.getMessage());
-					}
-				}
-				*/
-				//rData.setRequestXml(rs.getClob("request_xml"));
-				return rData;
-			} 
-		};
-		return map;
+			return rootType;
+		}
 	}
-
-	private ParameterizedRowMapper getApproval() {
-		ParameterizedRowMapper<ApprovalType> map = new ParameterizedRowMapper<ApprovalType>() {
-			public ApprovalType mapRow(ResultSet rs, int rowNum) throws SQLException {
-				ApprovalType rData = new ApprovalType();
-				DTOFactory factory = new DTOFactory();
-				rData.setId(rs.getString("approval_id"));
-				rData.setName(rs.getString("approval_name"));
-				rData.setDescription(rs.getString("approval_description"));
-				rData.setObjectCd(rs.getString("object_cd"));
-				Date date = rs.getDate("approval_activation_date");
-
-				if (date == null)
-					rData.setActivationDate(null);
-				else 
-					rData.setActivationDate(long2Gregorian(date.getTime())); 
-
-				date = rs.getDate("approval_expiration_date");
-				if (date == null)
-					rData.setExpirationDate(null);
-				else 
-					rData.setExpirationDate(long2Gregorian(date.getTime())); 
+ */
 
 
-				return rData;
-			} 
-		};
-		return map;
-	}
-	private ParameterizedRowMapper getParam() {
-		ParameterizedRowMapper<ParamType> map = new ParameterizedRowMapper<ParamType>() {
-			public ParamType mapRow(ResultSet rs, int rowNum) throws SQLException {
-				ParamType eData = new ParamType();
-				log.debug("setting name");
-				eData.setName(rs.getString("param_name_cd"));
-				eData.setValue(rs.getString("value"));
-				eData.setId(rs.getInt("id"));
-				eData.setDatatype(rs.getString("datatype_cd"));
-				return eData;
-			} 
-		};
-		return map;
-	}
+class getProject implements RowMapper<ProjectType> {
+	@Override
+	public ProjectType mapRow(ResultSet rs, int rowNum) throws SQLException {
+
+		ProjectType rData = new ProjectType();
+		DTOFactory factory = new DTOFactory();
+		rData.setKey(rs.getString("project_key"));
+		rData.setName(rs.getString("project_name"));
+		rData.setPath(rs.getString("project_path"));
+		rData.setDescription(rs.getString("project_description"));
+		rData.setId(rs.getString("project_id"));
+		rData.setWiki(rs.getString("project_wiki"));
+		return rData;
+	} 
+}
+
+class getCell implements RowMapper<CellDataType> {
+	@Override
+	public CellDataType mapRow(ResultSet rs, int rowNum) throws SQLException {
+		CellDataType rData = new CellDataType();
+		DTOFactory factory = new DTOFactory();
+		rData.setId(rs.getString("cell_id"));
+		rData.setName(rs.getString("name"));
+		rData.setProjectPath(rs.getString("project_path"));
+		rData.setCanOverride(rs.getBoolean("can_override"));
+		rData.setMethod(rs.getString("method_cd"));
+		rData.setUrl(rs.getString("url"));
+		return rData;
+	} 
+}
+
+class getProjectRequest implements RowMapper<ProjectRequestType> {
+	@Override
+	public ProjectRequestType mapRow(ResultSet rs, int rowNum) throws SQLException {
+		ProjectRequestType rData = new ProjectRequestType();
+		DTOFactory factory = new DTOFactory();
+		rData.setId(Integer.toString(rs.getInt("id")));
+		rData.setProjectId(rs.getString("project_id"));
+		rData.setTitle(rs.getString("title"));
+		rData.setSubmitChar(rs.getString("submit_char"));
+		Date date = rs.getDate("entry_date");
+
+		if (date == null)
+			rData.setEntryDate(null);
+		else 
+			rData.setEntryDate(long2Gregorian(date.getTime())); 
+
+		rData.setRequestXml(rs.getString("request_xml"));
+
+		//rData.setRequestXml(rs.getClob("request_xml"));
+		return rData;
+	} 
 
 	public static XMLGregorianCalendar long2Gregorian(long date) {
 		DatatypeFactory dataTypeFactory;
@@ -2501,185 +2612,255 @@ public class PMDbDao extends JdbcDaoSupport {
 		gc.setTimeInMillis(date);
 		return dataTypeFactory.newXMLGregorianCalendar(gc);
 	}
+}
 
-	private ParameterizedRowMapper getGlobal() {
-		ParameterizedRowMapper<GlobalDataType> map = new ParameterizedRowMapper<GlobalDataType>() {
-			public GlobalDataType mapRow(ResultSet rs, int rowNum) throws SQLException {
-				DTOFactory factory = new DTOFactory();
+class getApproval implements RowMapper<ApprovalType> {
+	@Override
+	public ApprovalType mapRow(ResultSet rs, int rowNum) throws SQLException {
+		ApprovalType rData = new ApprovalType();
+		DTOFactory factory = new DTOFactory();
+		rData.setId(rs.getString("approval_id"));
+		rData.setName(rs.getString("approval_name"));
+		rData.setDescription(rs.getString("approval_description"));
+		rData.setObjectCd(rs.getString("object_cd"));
+		Date date = rs.getDate("approval_activation_date");
 
-				GlobalDataType eData = new GlobalDataType();
+		if (date == null)
+			rData.setActivationDate(null);
+		else 
+			rData.setActivationDate(long2Gregorian(date.getTime())); 
 
-				log.debug("setting name");
-				ParamType param = new ParamType();
-				param.setId(rs.getInt("id"));
-				param.setName(rs.getString("param_name_cd"));
-				param.setValue(rs.getString("value"));
-				param.setDatatype(rs.getString("datatype_cd"));
-				eData.getParam().add(param);
-				eData.setProjectPath(rs.getString("project_path"));
-				eData.setCanOverride(rs.getBoolean("can_override"));
-				return eData;
-			} 
-		};
-		return map;
+		date = rs.getDate("approval_expiration_date");
+		if (date == null)
+			rData.setExpirationDate(null);
+		else 
+			rData.setExpirationDate(long2Gregorian(date.getTime())); 
+
+
+		return rData;
+	} 
+	public static XMLGregorianCalendar long2Gregorian(long date) {
+		DatatypeFactory dataTypeFactory;
+		try {
+			dataTypeFactory = DatatypeFactory.newInstance();
+		} catch (DatatypeConfigurationException e) {
+			throw new RuntimeException(e);
+		}
+		GregorianCalendar gc = new GregorianCalendar();
+		gc.setTimeInMillis(date);
+		return dataTypeFactory.newXMLGregorianCalendar(gc);
+	}
+}
+
+class getParam implements RowMapper<ParamType> {
+	@Override
+	public ParamType mapRow(ResultSet rs, int rowNum) throws SQLException {	
+		ParamType eData = new ParamType();
+		eData.setName(rs.getString("param_name_cd"));
+		eData.setValue(rs.getString("value"));
+		eData.setId(rs.getInt("id"));
+		eData.setDatatype(rs.getString("datatype_cd"));
+		return eData;
+	} 
+}
+
+/*
+	class getEnvironmentParams implements RowMapper<HiveParamData> {
+	    @Override
+	    public HiveParamData mapRow(ResultSet rs, int rowNum) throws SQLException {
+	public static XMLGregorianCalendar long2Gregorian(long date) {
+		DatatypeFactory dataTypeFactory;
+		try {
+			dataTypeFactory = DatatypeFactory.newInstance();
+		} catch (DatatypeConfigurationException e) {
+			throw new RuntimeException(e);
+		}
+		GregorianCalendar gc = new GregorianCalendar();
+		gc.setTimeInMillis(date);
+		return dataTypeFactory.newXMLGregorianCalendar(gc);
+	}
+ */
+
+class getGlobal implements RowMapper<GlobalDataType> {
+	@Override
+	public GlobalDataType mapRow(ResultSet rs, int rowNum) throws SQLException {
+
+		GlobalDataType eData = new GlobalDataType();
+
+		ParamType param = new ParamType();
+		param.setId(rs.getInt("id"));
+		param.setName(rs.getString("param_name_cd"));
+		param.setValue(rs.getString("value"));
+		param.setDatatype(rs.getString("datatype_cd"));
+		eData.getParam().add(param);
+		eData.setProjectPath(rs.getString("project_path"));
+		eData.setCanOverride(rs.getBoolean("can_override"));
+		return eData;
+	} 
+}
+
+class getUserParams implements RowMapper<UserParamData> {
+	@Override
+	public UserParamData mapRow(ResultSet rs, int rowNum) throws SQLException {
+		UserParamData eData = new UserParamData();
+		eData.setId(rs.getInt("id"));
+		eData.setDatatype(rs.getString("datatype_cd"));
+		eData.setUser(rs.getString("user_id"));
+		eData.setName(rs.getString("param_name_cd"));
+		eData.setValue(rs.getString("value"));
+		return eData;
+	} 
+}
+
+class getProjectUserParams implements RowMapper<ProjectUserParamData> {
+	@Override
+	public ProjectUserParamData mapRow(ResultSet rs, int rowNum) throws SQLException {
+		ProjectUserParamData eData = new ProjectUserParamData();
+		eData.setProject(rs.getString("project_path"));
+		eData.setUser(rs.getString("user_id"));
+		eData.setName(rs.getString("param_name"));
+		eData.setValue(rs.getString("value"));
+
+		return eData;
+	} 
+}
+
+class getProjectParams implements RowMapper<ParamType> {
+	@Override
+	public ParamType mapRow(ResultSet rs, int rowNum) throws SQLException {
+		ParamType eData = new ParamType();
+		//eData.setProject(rs.getString("project_path"));
+		eData.setName(rs.getString("param_name_cd"));
+		eData.setValue(rs.getString("value"));
+
+		return eData;
+	} 
+}
+
+class getSession implements RowMapper<SessionData> {
+	@Override
+	public SessionData mapRow(ResultSet rs, int rowNum) throws SQLException {
+		SessionData rData = new SessionData();
+		//				DTOFactory factory = new DTOFactory();
+
+		rData.setSessionID(rs.getString("session_id"));
+
+		Date date = rs.getTimestamp("expired_date");
+		if (date == null)
+			rData.setExpiredDate(null);
+		else 
+			rData.setExpiredDate(date); 
+
+		date = rs.getTimestamp("entry_date");
+		if (date == null)
+			rData.setIssuedDate(null);
+		else 
+			rData.setIssuedDate(date); 
+
+
+		return rData;
+	} 
+}
+
+class getUserLogin implements RowMapper<SessionData> {
+	@Override
+	public SessionData mapRow(ResultSet rs, int rowNum) throws SQLException {
+		SessionData rData = new SessionData();
+		//				DTOFactory factory = new DTOFactory();
+
+		rData.setSessionID(rs.getString("session_id"));
+
+		Date date = rs.getTimestamp("expired_date");
+		if (date == null)
+			rData.setExpiredDate(null);
+		else 
+			rData.setExpiredDate(date); 
+
+		date = rs.getTimestamp("entry_date");
+		if (date == null)
+			rData.setIssuedDate(null);
+		else 
+			rData.setIssuedDate(date); 
+
+
+		return rData;
+	} 
+}
+
+class getRole implements RowMapper<RoleType> {
+	@Override
+	public RoleType mapRow(ResultSet rs, int rowNum) throws SQLException {
+		RoleType rData = new RoleType();
+		rData.setProjectId(rs.getString("project_id"));
+		rData.setUserName(rs.getString("user_id"));
+		rData.setRole(rs.getString("user_role_cd"));
+
+		return rData;
+	} 
+}
+
+class getEnvironment implements RowMapper<ConfigureType> {
+	@Override
+	public ConfigureType mapRow(ResultSet rs, int rowNum) throws SQLException {
+		DTOFactory factory = new DTOFactory();
+		ConfigureType eData = new ConfigureType();
+		eData.setActive(rs.getBoolean("active"));
+		eData.setDomainId(rs.getString("domain_id"));
+		eData.setDomainName(rs.getString("domain_name"));
+		eData.setHelpURL(rs.getString("helpurl"));
+		eData.setEnvironment(rs.getString("environment_cd"));
+
+		return eData;
+	} 
+}
+
+class getUser implements RowMapper<UserType> {
+	boolean includePassword;
+
+	public void setIncludePassword(boolean includePassword) {
+		this.includePassword = includePassword;
 	}
 
-	private ParameterizedRowMapper getUserParams() {
-		ParameterizedRowMapper<UserParamData> map = new ParameterizedRowMapper<UserParamData>() {
-			public UserParamData mapRow(ResultSet rs, int rowNum) throws SQLException {
-				UserParamData eData = new UserParamData();
-				eData.setId(rs.getInt("id"));
-				eData.setDatatype(rs.getString("datatype_cd"));
-				eData.setUser(rs.getString("user_id"));
-				eData.setName(rs.getString("param_name_cd"));
-				eData.setValue(rs.getString("value"));
-				log.debug("Found a user/param: " + rs.getString("user_id") + ":" + rs.getString("param_name_cd"));
-				return eData;
-			} 
-		};
-		return map;
-	}
+	@Override
+	public UserType mapRow(ResultSet rs, int rowNum) throws SQLException {
+		UserType userData = new UserType();
+		userData.setFullName(rs.getString("full_name"));
+		userData.setUserName(rs.getString("user_id"));
+		try {
+			//TODO MM fix admin
+			String isAdmin = rs.getString("user_role_cd");
+			if ((isAdmin != null && isAdmin.equalsIgnoreCase("ADMIN")))
+			userData.setIsAdmin(true);
+			else
+				userData.setIsAdmin(false);
+				
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+//			e.printStackTrace();
+		}
+		if (includePassword) {
+			PasswordType pass = new PasswordType();
+			pass.setValue(rs.getString("password"));
+			userData.setPassword(pass);
+		}
+		userData.setEmail(rs.getString("email"));
 
-	private ParameterizedRowMapper getProjectUserParams() {
-		ParameterizedRowMapper<ProjectUserParamData> map = new ParameterizedRowMapper<ProjectUserParamData>() {
-			public ProjectUserParamData mapRow(ResultSet rs, int rowNum) throws SQLException {
-				ProjectUserParamData eData = new ProjectUserParamData();
-				eData.setProject(rs.getString("project_path"));
-				eData.setUser(rs.getString("user_id"));
-				eData.setName(rs.getString("param_name"));
-				eData.setValue(rs.getString("value"));
+		return userData;
+	} 
+}
 
-				return eData;
-			} 
-		};
-		return map;
-	}
+class getUserLoginAttempt implements RowMapper<UserLoginType> {
+	@Override
+	public UserLoginType mapRow(ResultSet rs, int rowNum) throws SQLException {
+		DTOFactory factory = new DTOFactory();
+		UserLoginType userData = new UserLoginType();
+		userData.setAttempt(rs.getString("attenpt_cd"));
+		userData.setUserName(rs.getString("user_id"));
 
-	private ParameterizedRowMapper getProjectParams() {
-		ParameterizedRowMapper<ParamType> map = new ParameterizedRowMapper<ParamType>() {
-			public ParamType mapRow(ResultSet rs, int rowNum) throws SQLException {
-				ParamType eData = new ParamType();
-				//eData.setProject(rs.getString("project_path"));
-				eData.setName(rs.getString("param_name_cd"));
-				eData.setValue(rs.getString("value"));
-
-				return eData;
-			} 
-		};
-		return map;
-	}
-
-
-	private ParameterizedRowMapper getSession() {
-		ParameterizedRowMapper<SessionData> map = new ParameterizedRowMapper<SessionData>() {
-			public SessionData mapRow(ResultSet rs, int rowNum) throws SQLException {
-				SessionData rData = new SessionData();
-				//				DTOFactory factory = new DTOFactory();
-
-				rData.setSessionID(rs.getString("session_id"));
-
-				Date date = rs.getTimestamp("expired_date");
-				if (date == null)
-					rData.setExpiredDate(null);
-				else 
-					rData.setExpiredDate(date); 
-
-				date = rs.getTimestamp("entry_date");
-				if (date == null)
-					rData.setIssuedDate(null);
-				else 
-					rData.setIssuedDate(date); 
-
-
-				return rData;
-			} 
-		};
-		return map;
-	}
-	
-
-	private ParameterizedRowMapper getUserLogin() {
-		ParameterizedRowMapper<SessionData> map = new ParameterizedRowMapper<SessionData>() {
-			public SessionData mapRow(ResultSet rs, int rowNum) throws SQLException {
-				SessionData rData = new SessionData();
-				//				DTOFactory factory = new DTOFactory();
-
-				rData.setSessionID(rs.getString("session_id"));
-
-				Date date = rs.getTimestamp("expired_date");
-				if (date == null)
-					rData.setExpiredDate(null);
-				else 
-					rData.setExpiredDate(date); 
-
-				date = rs.getTimestamp("entry_date");
-				if (date == null)
-					rData.setIssuedDate(null);
-				else 
-					rData.setIssuedDate(date); 
-
-
-				return rData;
-			} 
-		};
-		return map;
-	}
-
-	private ParameterizedRowMapper getRole() {
-		ParameterizedRowMapper<RoleType> map = new ParameterizedRowMapper<RoleType>() {
-			public RoleType mapRow(ResultSet rs, int rowNum) throws SQLException {
-				RoleType rData = new RoleType();
-				rData.setProjectId(rs.getString("project_id"));
-				rData.setUserName(rs.getString("user_id"));
-				rData.setRole(rs.getString("user_role_cd"));
-
-				return rData;
-			} 
-		};
-		return map;
-	}
-
-	private ParameterizedRowMapper getEnvironment() {
-		ParameterizedRowMapper<ConfigureType> map = new ParameterizedRowMapper<ConfigureType>() {
-			public ConfigureType mapRow(ResultSet rs, int rowNum) throws SQLException {
-				DTOFactory factory = new DTOFactory();
-				ConfigureType eData = new ConfigureType();
-				eData.setActive(rs.getBoolean("active"));
-				eData.setDomainId(rs.getString("domain_id"));
-				eData.setDomainName(rs.getString("domain_name"));
-				eData.setHelpURL(rs.getString("helpurl"));
-				eData.setEnvironment(rs.getString("environment_cd"));
-
-				return eData;
-			} 
-		};
-		return map;
-	}
-
-	private ParameterizedRowMapper getUser(final boolean includePassword) {
-		ParameterizedRowMapper<UserType> map = new ParameterizedRowMapper<UserType>() {
-			public UserType mapRow(ResultSet rs, int rowNum) throws SQLException {
-				DTOFactory factory = new DTOFactory();
-				UserType userData = new UserType();
-				userData.setFullName(rs.getString("full_name"));
-				userData.setUserName(rs.getString("user_id"));
-				try {
-					userData.setIsAdmin(validateRole(userData.getUserName(), "ADMIN",null));
-				} catch (I2B2DAOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-				if (includePassword) {
-					PasswordType pass = new PasswordType();
-					pass.setValue(rs.getString("password"));
-					userData.setPassword(pass);
-				}
-				userData.setEmail(rs.getString("email"));
-
-				return userData;
-			} 
-		};
-		return map;
-	}
+		return userData;
+	} 
 
 }
+
+
+
