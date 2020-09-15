@@ -424,9 +424,11 @@ public class ServicesHandler extends RequestHandler {
 								UserType user = validateSuppliedPassword( rmt.getUsername(), rmt.getPassword().getValue(), params, skipValidation);
 								uType.setFullName(user.getFullName());
 								uType.setIsAdmin(user.isIsAdmin());
+								uType.setUserName(user.getUserName());
+								uType.setDomain(rmt.getDomain());
 								//Dont log AGG_SERVICE_ACOUNT
 								if (!rmt.getUsername().equals("AGG_SERVICE_ACCOUNT"))
-									saveLoginAttempt(pmDb, rmt.getUsername(), "SUCCESS");
+									saveLoginAttempt(pmDb, uType.getUserName(), "SUCCESS");
 
 							} catch (Exception e)
 							{
@@ -434,8 +436,8 @@ public class ServicesHandler extends RequestHandler {
 							}
 
 							//if password was good then set info and generate a new session key
-							uType.setUserName(rmt.getUsername());
-							uType.setDomain(rmt.getDomain());
+							//uType.setUserName(rmt.getUsername());
+							//uType.setDomain(rmt.getDomain());
 
 							//SessionKey newKey;
 

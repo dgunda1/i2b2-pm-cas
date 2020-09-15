@@ -4,6 +4,7 @@
  */
 package edu.harvard.i2b2.pm.delegate;
 
+
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.URLConnection;
@@ -44,6 +45,7 @@ public class ServicesHandlerCAS extends ServicesHandler {
     private static final String CAS_URL_PROPERTY_NAME = "cas.url";
     private static final String CAS_DEFAULT_URL = "https://localhost:8443/cas-server/";
     private static final Properties appProperties = new Properties();
+    private MessageContext context = null;
     static {
         try {
             FileReader fr = new FileReader(CONFIG_PATHNAME);
@@ -65,18 +67,23 @@ public class ServicesHandlerCAS extends ServicesHandler {
 
     public ServicesHandlerCAS(ServicesMessage servicesMsg) throws I2B2Exception{
 	super(servicesMsg);
+	context = MessageContext.getCurrentMessageContext();
+	log.debug("cas url :" + appProperties.getProperty(CAS_URL_PROPERTY_NAME));
     }
 
     protected UserType validateSuppliedPassword (String service, 
             String ticket, Hashtable param, boolean skipValidation) throws Exception {
-
+		log.debug("Inside VAlidate Password Service:" + service + "params" + param.toString() + " Ticket :" + ticket);
 	// support password-based accounts too for OBFSC_SERVICE_ACCOUNT
 	if (! (service.startsWith("http:")
 	       || service.startsWith("https:"))){
+		log.debug("Inside VAlidate Pass service not cas");
 	    return super.validateSuppliedPassword(service, ticket, param,skipValidation);
 	}
 	
-	MessageContext context = MessageContext.getCurrentMessageContext();
+	log.debug("Inside VAlidate Pass service CAS");
+	log.debug("+++Context+++"+context);
+	log.debug("+++Chceking the MessageContext object+++"+ MessageContext.getCurrentMessageContext());
 	HttpServletRequest  request = (HttpServletRequest) context.getProperty("transport.http.servletRequest");
 	System.out.println("+++request+++"+request);
 	log.debug("+++request+++"+request);
