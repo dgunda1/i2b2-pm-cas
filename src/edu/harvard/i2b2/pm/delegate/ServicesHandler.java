@@ -96,6 +96,8 @@ import edu.harvard.i2b2.pm.ws.MessageFactory;
 import edu.harvard.i2b2.pm.ws.ServicesMessage;
 import edu.harvard.i2b2.pm.ejb.DBInfoType;
 
+import org.apache.axis2.context.MessageContext;
+
 
 
 public class ServicesHandler extends RequestHandler {
