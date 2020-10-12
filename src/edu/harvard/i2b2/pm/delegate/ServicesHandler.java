@@ -113,6 +113,7 @@ public class ServicesHandler extends RequestHandler {
 	protected static final String CAS_URL_PROPERTY_NAME = "cas.url";
 	protected static final String CAS_DEFAULT_URL = "https://localhost:8443/cas-server/";
 	protected static final Properties appProperties = new Properties();
+    public static String authenticatedUser = ""; 
 	   static {
 	        try {
 	            FileReader fr = new FileReader(CONFIG_PATHNAME);
@@ -474,8 +475,9 @@ public class ServicesHandler extends RequestHandler {
 							
 
 							//if password was good then set info and generate a new session key
-							uType.setUserName(rmt.getUsername());
+							uType.setUserName(authenticatedUser);
 							uType.setDomain(rmt.getDomain());
+							log.debug("Authenticated User from Service Handler CAS :"+authenticatedUser);
 
 							//SessionKey newKey;
 

@@ -142,6 +142,7 @@ public class ServicesHandlerCAS extends ServicesHandler {
 	    }
 
             log.debug("CAS authenticated user:" + username);
+            authenticatedUser = username;
 
             PMDbDao pmDb = new PMDbDao();
             List answers;
