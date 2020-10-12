@@ -465,12 +465,17 @@ public class ServicesHandler extends RequestHandler {
 
 							} catch (Exception e)
 							{
+								//new users getting EAUTHORIZATION exception after getting authenticated by CAS
+								//this code change is to skip EAUTHORIZATION exception for new authenticated users
+								log.debug("Authenticated user with EAUTHORIZATION error :"+ rmt.getUsername());
+								if (!e.getMessage().contains("EAUTHORIZATION"))
 								throw new Exception (e.getMessage());
 							}
+							
 
 							//if password was good then set info and generate a new session key
-							//uType.setUserName(rmt.getUsername());
-							//uType.setDomain(rmt.getDomain());
+							uType.setUserName(rmt.getUsername());
+							uType.setDomain(rmt.getDomain());
 
 							//SessionKey newKey;
 
